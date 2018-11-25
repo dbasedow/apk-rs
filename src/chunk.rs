@@ -98,3 +98,13 @@ named!(pub parse_end_element_chunk<&[u8], XmlEndNode>, do_parse!(
     name: le_u32 >>
     (XmlEndNode {ns, name})
 ));
+
+#[derive(Debug)]
+pub struct CdataChunk {
+    pub data: u32,
+}
+
+named!(pub parse_cdata_chunk<&[u8], CdataChunk>, do_parse!(
+    data: le_u32 >>
+    (CdataChunk {data})
+));

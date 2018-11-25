@@ -1,6 +1,6 @@
-use crate::typedvalue::TypedValue;
-use crate::stringpool::{parse_string_pool_chunk, StringPool};
 use crate::chunk::*;
+use crate::stringpool::{parse_string_pool_chunk, StringPool};
+use crate::typedvalue::TypedValue;
 use nom::IResult;
 
 pub fn is_binary_xml(data: &[u8]) -> bool {
@@ -39,7 +39,11 @@ pub fn handle_xml_file(data: &Vec<u8>) {
                             let st = ElementEnd::from(&tag, &meta, &string_pool.as_ref().unwrap());
                         }
                     }
-                    //TODO: Add CDATA 0x104
+                    0x104 => {
+                        if let IResult::Done(_, tag) = parse_cdata_chunk(chunk.data) {
+                            let st = CData::from(&tag, &meta, &string_pool.as_ref().unwrap());
+                        }
+                    }
                     0x001 => {
                         if let Ok(sp) = parse_string_pool_chunk(chunk) {
                             string_pool = Some(sp)
@@ -82,7 +86,6 @@ impl Namespace {
     }
 }
 
-
 #[derive(Debug)]
 struct ElementStart {
     line_number: u32,
@@ -124,7 +127,6 @@ impl ElementStart {
     }
 }
 
-
 #[derive(Debug)]
 struct Attribute {
     ns: Option<String>,
@@ -161,3 +163,18 @@ impl ElementEnd {
     }
 }
 
+struct CData {
+    line_number: u32,
+    comment: Option<String>,
+    data: String,
+}
+
+impl CData {
+    fn from(chunk: &CdataChunk, meta: &XmlChunkHeader, strings: &StringPool) -> Self {
+        Self {
+            line_number: meta.line_number,
+            comment: strings.get_optional(meta.comment),
+            data: strings.get(chunk.data),
+        }
+    }
+}
