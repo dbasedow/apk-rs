@@ -1,0 +1,9 @@
+[package]
+name = "android-xml"
+version = "0.1.0"
+authors = ["Daniel Basedow"]
+edition = "2018"
+
+[dependencies]
+zip = "0.4.2"
+nom = "3"
