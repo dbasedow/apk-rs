@@ -7,68 +7,113 @@ pub fn is_binary_xml(data: &[u8]) -> bool {
     data[0] == 0x03 && data[1] == 0x00
 }
 
-//TODO: return iterator
-//TODO: take Read
-pub fn handle_xml_file(data: &Vec<u8>) {
-    let r = parse_chunk(&data);
-    let r = r.unwrap();
-    if let IResult::Done(_, s) = r.1.get_sub_chunks() {
-        let mut string_pool: Option<StringPool> = None;
+pub struct XmlElementStream<'a> {
+    chunks: Vec<Chunk<'a>>,
+    string_pool: StringPool,
+    index: usize,
+}
 
-        for chunk in s.iter() {
-            if let IResult::Done(_, meta) = parse_xml_chunk_header(chunk.additional_header) {
-                match chunk.typ {
-                    0x100 => {
-                        if let IResult::Done(_, ns) = parse_namespace_body(chunk.data) {
-                            let st = Namespace::from(&ns, &meta, &string_pool.as_ref().unwrap());
-                        }
-                    }
-                    0x101 => {
-                        if let IResult::Done(_, ns) = parse_namespace_body(chunk.data) {
-                            let st = Namespace::from(&ns, &meta, &string_pool.as_ref().unwrap());
-                        }
-                    }
-                    0x102 => {
-                        if let IResult::Done(_, tag) = parse_start_element_chunk(chunk.data) {
-                            let st =
-                                ElementStart::from(&tag, &meta, &string_pool.as_ref().unwrap());
-                        }
-                    }
-                    0x103 => {
-                        if let IResult::Done(_, tag) = parse_end_element_chunk(chunk.data) {
-                            let st = ElementEnd::from(&tag, &meta, &string_pool.as_ref().unwrap());
-                        }
-                    }
-                    0x104 => {
-                        if let IResult::Done(_, tag) = parse_cdata_chunk(chunk.data) {
-                            let st = CData::from(&tag, &meta, &string_pool.as_ref().unwrap());
-                        }
-                    }
-                    0x001 => {
-                        if let Ok(sp) = parse_string_pool_chunk(chunk) {
-                            string_pool = Some(sp)
-                        }
-                    }
-                    t => println!("0x{:X}", t),
+impl<'a> XmlElementStream<'a> {
+    pub fn new(data: &'a [u8]) -> Result<Self, ParseError> {
+        if let IResult::Done(_, r) = parse_chunk(&data) {
+            if let IResult::Done(_, s) = r.get_sub_chunks() {
+                if let Ok(string_pool) = parse_string_pool_chunk(&s[0]) {
+                    //TODO: actually handle res chunks
+                    let index = if s[1].typ == 0x180 { 2 } else { 1 };
+                    return Ok(Self {
+                        chunks: s.clone(),
+                        string_pool,
+                        index,
+                    });
                 }
             }
         }
+
+        Err(ParseError::WrongChunkType)
     }
 }
 
-enum ParseError {
+impl<'a> Iterator for XmlElementStream<'a> {
+    type Item = XmlEvent;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        let mut result = None;
+        if self.index < self.chunks.len() {
+            let chunk = &self.chunks[self.index];
+            self.index += 1;
+            let meta = chunk.get_additional_header();
+
+            match chunk.typ {
+                0x100 => {
+                    if let IResult::Done(_, ns) = parse_namespace_body(chunk.data) {
+                        result = Some(XmlEvent::NamespaceStart(Namespace::from(
+                            &ns,
+                            &meta.unwrap(),
+                            &self.string_pool,
+                        )));
+                    }
+                }
+                0x101 => {
+                    if let IResult::Done(_, ns) = parse_namespace_body(chunk.data) {
+                        result = Some(XmlEvent::NamespaceEnd(Namespace::from(
+                            &ns,
+                            &meta.unwrap(),
+                            &self.string_pool,
+                        )));
+                    }
+                }
+                0x102 => {
+                    if let IResult::Done(_, tag) = parse_start_element_chunk(chunk.data) {
+                        result = Some(XmlEvent::ElementStart(ElementStart::from(
+                            &tag,
+                            &meta.unwrap(),
+                            &self.string_pool,
+                        )));
+                    }
+                }
+                0x103 => {
+                    if let IResult::Done(_, tag) = parse_end_element_chunk(chunk.data) {
+                        result = Some(XmlEvent::ElementEnd(ElementEnd::from(
+                            &tag,
+                            &meta.unwrap(),
+                            &self.string_pool,
+                        )));
+                    }
+                }
+                0x104 => {
+                    if let IResult::Done(_, tag) = parse_cdata_chunk(chunk.data) {
+                        result = Some(XmlEvent::CData(CData::from(
+                            &tag,
+                            &meta.unwrap(),
+                            &self.string_pool,
+                        )));
+                    }
+                }
+                0x180 => {
+                    println!("TODO: implement chunk type 0x180");
+                }
+                t => unreachable!("found chunk type 0x{:x}", t),
+            }
+        }
+        result
+    }
+}
+
+pub enum ParseError {
     WrongChunkType,
 }
 
-enum XmlEvent {
+#[derive(Debug)]
+pub enum XmlEvent {
     NamespaceStart(Namespace),
     NamespaceEnd(Namespace),
     ElementStart(ElementStart),
     ElementEnd(ElementEnd),
+    CData(CData),
 }
 
 #[derive(Debug)]
-struct Namespace {
+pub struct Namespace {
     line_number: u32,
     comment: Option<String>,
     prefix: String,
@@ -87,12 +132,12 @@ impl Namespace {
 }
 
 #[derive(Debug)]
-struct ElementStart {
-    line_number: u32,
-    comment: Option<String>,
-    ns: Option<String>,
-    name: String,
-    attributes: Option<Vec<Attribute>>,
+pub struct ElementStart {
+    pub line_number: u32,
+    pub comment: Option<String>,
+    pub ns: Option<String>,
+    pub name: String,
+    pub attributes: Option<Vec<Attribute>>,
 }
 
 impl ElementStart {
@@ -128,7 +173,7 @@ impl ElementStart {
 }
 
 #[derive(Debug)]
-struct Attribute {
+pub struct Attribute {
     ns: Option<String>,
     name: String,
     value: TypedValue,
@@ -145,11 +190,11 @@ impl Attribute {
 }
 
 #[derive(Debug)]
-struct ElementEnd {
-    line_number: u32,
-    comment: Option<String>,
-    ns: Option<String>,
-    name: String,
+pub struct ElementEnd {
+    pub line_number: u32,
+    pub comment: Option<String>,
+    pub ns: Option<String>,
+    pub name: String,
 }
 
 impl ElementEnd {
@@ -163,7 +208,8 @@ impl ElementEnd {
     }
 }
 
-struct CData {
+#[derive(Debug)]
+pub struct CData {
     line_number: u32,
     comment: Option<String>,
     data: String,

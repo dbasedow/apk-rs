@@ -1,7 +1,7 @@
 use crate::typedvalue::parse_typed_value;
 use nom::*;
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Chunk<'a> {
     pub typ: u16,
     pub additional_header: &'a [u8],
@@ -9,8 +9,18 @@ pub struct Chunk<'a> {
 }
 
 impl<'a> Chunk<'a> {
-    pub fn get_sub_chunks(&self) -> IResult<&[u8], Vec<Chunk>> {
+    pub fn get_sub_chunks(&self) -> IResult<&[u8], Vec<Chunk<'a>>> {
         do_parse!(self.data, res: many0!(parse_chunk) >> (res))
+    }
+
+    pub fn get_additional_header(&self) -> Option<XmlChunkHeader> {
+        if self.additional_header.len() > 0 {
+            if let IResult::Done(_, meta) = parse_xml_chunk_header(self.additional_header) {
+                return Some(meta);
+            }
+        }
+
+        None
     }
 }
 

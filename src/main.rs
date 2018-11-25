@@ -1,7 +1,7 @@
 extern crate zip;
 #[macro_use]
 extern crate nom;
-use crate::parser::{handle_xml_file, is_binary_xml};
+use crate::parser::{is_binary_xml, XmlElementStream, XmlEvent};
 use std::env;
 use std::fs::File;
 use std::io::Read;
@@ -19,7 +19,35 @@ fn main() {
         .filter(|b| b.0.ends_with(".xml"))
         .filter(|b| is_binary_xml(&b.1[..]))
     {
-        handle_xml_file(&b.1);
+        render_plain(&b.1);
+    }
+}
+
+fn render_plain(data: &[u8]) {
+    if let Ok(it) = XmlElementStream::new(data) {
+        let mut indent = 0;
+        for e in it {
+            match e {
+                XmlEvent::ElementStart(e) => {
+                    indent_ouput(indent);
+                    print!("<{}", e.name);
+                    println!(" />");
+                    indent += 1;
+                }
+                XmlEvent::ElementEnd(e) => {
+                    indent_ouput(indent);
+                    println!("</{}>", e.name);
+                    indent -= 1;
+                }
+                _ => {}
+            }
+        }
+    }
+}
+
+fn indent_ouput(level: u32) {
+    for _ in 0..level {
+        print!("  ");
     }
 }
 
@@ -40,8 +68,8 @@ fn extract_xml_by_name(apk: &str, name: &str) -> zip::result::ZipResult<Box<Vec<
     Err(ZipError::FileNotFound)
 }
 
+mod chunk;
 mod parser;
 mod stringpool;
-mod zipiter;
-mod chunk;
 mod typedvalue;
+mod zipiter;
