@@ -1,5 +1,5 @@
 use nom::*;
-use crate::parser::{Chunk};
+use crate::chunk::{Chunk};
 
 pub struct StringPool {
     pool: Vec<String>,

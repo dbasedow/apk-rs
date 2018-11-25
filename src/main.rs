@@ -43,3 +43,5 @@ fn extract_xml_by_name(apk: &str, name: &str) -> zip::result::ZipResult<Box<Vec<
 mod parser;
 mod stringpool;
 mod zipiter;
+mod chunk;
+mod typedvalue;
