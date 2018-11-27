@@ -163,7 +163,7 @@ impl ElementStart {
         }
     }
 
-    fn attribute_len(&self) -> usize {
+    pub fn attribute_len(&self) -> usize {
         if let Some(ref attrs) = self.attributes {
             attrs.len()
         } else {
@@ -174,9 +174,9 @@ impl ElementStart {
 
 #[derive(Debug)]
 pub struct Attribute {
-    ns: Option<String>,
-    name: String,
-    value: TypedValue,
+    pub ns: Option<String>,
+    pub name: String,
+    pub value: TypedValue,
 }
 
 impl Attribute {
@@ -210,9 +210,9 @@ impl ElementEnd {
 
 #[derive(Debug)]
 pub struct CData {
-    line_number: u32,
-    comment: Option<String>,
-    data: String,
+    pub line_number: u32,
+    pub comment: Option<String>,
+    pub data: String,
 }
 
 impl CData {

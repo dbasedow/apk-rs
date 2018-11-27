@@ -31,13 +31,18 @@ fn render_plain(data: &[u8]) {
                 XmlEvent::ElementStart(e) => {
                     indent_ouput(indent);
                     print!("<{}", e.name);
+                    if e.attribute_len() > 0 {
+                        for a in e.attributes.unwrap() {
+                            print!(" {}=\"{}\"", a.name, a.value.to_string());
+                        }
+                    }
                     println!(" />");
                     indent += 1;
                 }
                 XmlEvent::ElementEnd(e) => {
+                    indent -= 1;
                     indent_ouput(indent);
                     println!("</{}>", e.name);
-                    indent -= 1;
                 }
                 _ => {}
             }
