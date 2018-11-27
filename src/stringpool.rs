@@ -1,8 +1,9 @@
+use crate::chunk::Chunk;
 use nom::*;
-use crate::chunk::{Chunk};
 
 pub struct StringPool {
     pool: Vec<String>,
+    styles: Vec<Vec<StringStyling>>,
 }
 
 impl StringPool {
@@ -47,15 +48,19 @@ pub enum ParseError {
     WrongChunkType,
 }
 
-named!(parse_utf8_string_len<&[u8], usize>, do_parse!(
-    len_bytes: be_u16 >>
-    cond!(len_bytes & 0x8000 == 0x8000, take!(2)) >>
-    (if len_bytes & 0x8000 == 0x8000 { (len_bytes & 0x7fff) as usize } else {(len_bytes & 0xff) as usize})
-));
+fn parse_utf8_len(input: &[u8]) -> IResult<&[u8], usize> {
+    if input[0] & 0x80 == 0x80 {
+        let result: usize = ((input[0] as usize & 0x7f) << 8) + input[1] as usize;
+        return IResult::Done(&input[2..], result);
+    } else {
+        return IResult::Done(&input[1..], input[0] as usize);
+    }
+}
 
 named!(parse_string_pool_entry_utf8<&[u8], String>, do_parse!(
-    string_length: parse_utf8_string_len >>
-    data: map!(count!(le_u8, string_length as usize), |u| String::from_utf8(u).unwrap()) >>
+    len_chars: parse_utf8_len >>
+    len_bytes: parse_utf8_len >>
+    data: map!(count!(le_u8, len_bytes as usize), |u| String::from_utf8(u).unwrap()) >>
     take!(1) >>
     (data)
 ));
@@ -67,6 +72,29 @@ named!(parse_string_pool_entry_utf16<&[u8], String>, do_parse!(
     (data)
 ));
 
+named!(parse_string_style_entry<&[u8], StringStyling>, do_parse!(
+    name: le_u32 >> 
+    fc: le_u32 >> 
+    lc: le_u32 >> 
+    (StringStyling { name: name as usize, start_char: fc as usize, end_char: lc as usize}))
+);
+
+fn find_end_of_string_styles(input: &[u8]) -> IResult<&[u8], &[u8]> {
+    do_parse!(input, n: tag!(&[0xff, 0xff, 0xff, 0xff]) >> (n))
+}
+
+named!(parse_string_style_entries<&[u8], Vec<StringStyling>>, do_parse!(
+    styles: many_till!(parse_string_style_entry, find_end_of_string_styles) >>
+    (styles.0)
+));
+
+#[derive(Debug)]
+struct StringStyling {
+    name: usize,
+    start_char: usize,
+    end_char: usize,
+}
+
 pub fn parse_string_pool_chunk(chunk: &Chunk) -> Result<StringPool, ParseError> {
     if chunk.typ != 0x0001 {
         return Err(ParseError::WrongChunkType);
@@ -76,10 +104,6 @@ pub fn parse_string_pool_chunk(chunk: &Chunk) -> Result<StringPool, ParseError> 
         .unwrap()
         .1;
 
-    if sph.style_count > 0 {
-        panic!("stylecount: {}", sph.style_count);
-    }
-
     let char_fn = if sph.is_utf8() {
         parse_string_pool_entry_utf8
     } else {
@@ -88,16 +112,29 @@ pub fn parse_string_pool_chunk(chunk: &Chunk) -> Result<StringPool, ParseError> 
 
     let u16_strings = do_parse!(
         chunk.data,
-        offsets: count!(le_u32, sph.string_count as usize) >> (offsets)
+        str_offsets: count!(le_u32, sph.string_count as usize)
+            >> sty_offsets: count!(le_u32, sph.style_count as usize)
+            >> ((str_offsets, sty_offsets))
     );
 
-    if let IResult::Done(rest, offsets) = u16_strings {
-        let mut strings: Vec<String> = Vec::with_capacity(offsets.len());
-        for offset in offsets {
+    if let IResult::Done(rest, (string_offsets, style_offsets)) = u16_strings {
+        let mut strings: Vec<String> = Vec::with_capacity(string_offsets.len());
+        for offset in string_offsets {
             let string = char_fn(&rest[offset as usize..]).unwrap().1;
             strings.push(string);
         }
-        return Ok(StringPool { pool: strings });
+
+        let mut styles: Vec<Vec<StringStyling>> = Vec::with_capacity(sph.style_count as usize);
+
+        if sph.style_count > 0 {
+            let style_rest = &rest[(sph.style_start - sph.string_start) as usize..];
+            for offset in style_offsets {
+                if let IResult::Done(_, styles_for_str) = parse_string_style_entries(&style_rest[offset as usize..]) {
+                    styles.push(styles_for_str);
+                }
+            }
+        }
+        return Ok(StringPool { pool: strings, styles });
     }
     Err(ParseError::WrongChunkType)
 }
