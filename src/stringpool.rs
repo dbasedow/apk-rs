@@ -1,6 +1,7 @@
 use crate::chunk::Chunk;
 use nom::*;
 
+#[derive(Debug)]
 pub struct StringPool {
     pool: Vec<String>,
     styles: Vec<Vec<StringStyling>>,
@@ -17,6 +18,10 @@ impl StringPool {
 
     pub fn get(&self, index: u32) -> String {
         self.pool[index as usize].clone()
+    }
+
+    pub fn is_styled(&self, index: u32) -> bool {
+        (index as usize) < self.styles.len()
     }
 }
 

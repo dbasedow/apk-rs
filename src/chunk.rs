@@ -24,6 +24,11 @@ impl<'a> Chunk<'a> {
     }
 }
 
+named!(pub parse_chunks<&[u8], Vec<Chunk>>, do_parse!(
+    res: many0!(parse_chunk) >> 
+    (res)
+));
+
 named!(pub parse_chunk<&[u8], Chunk>, do_parse!(
         typ: le_u16
             >> header_size: le_u16
