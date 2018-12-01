@@ -1,29 +1,69 @@
 use crate::chunk::{parse_chunk, parse_chunks};
 use crate::stringpool::parse_string_pool_chunk;
+use crate::resource_config::{Configuration, parse_resource_table_config};
+use crate::typedvalue::ResourceValue;
+use crate::typedvalue::{parse_res_value, TypedValue};
 use nom::*;
+use std::collections::HashSet;
 
 pub fn parse_resource_table(data: &[u8]) -> IResult<&[u8], ()> {
     let (_, main_chunk) = try_parse!(data, parse_chunk);
-    let num_packages = parse_table_chunk_header(main_chunk.additional_header);
+    let (_, num_packages) = try_parse!(main_chunk.additional_header, parse_table_chunk_header);
+    if num_packages != 1 {
+        panic!("num packages is {}", num_packages);
+    }
     let (_, chunks) = try_parse!(main_chunk.data, parse_chunks);
-    let strings = parse_string_pool_chunk(&chunks[0]);
+    let strings = parse_string_pool_chunk(&chunks[0]).ok().unwrap();
     for chunk in chunks {
         if chunk.typ == 0x200 {
             let (_, pch) = try_parse!(chunk.additional_header, parse_package_chunk_header);
             let (_, package_chunks) = try_parse!(chunk.data, parse_chunks);
-            let type_strings = parse_string_pool_chunk(&package_chunks[0]).ok();
-            let key_strings = parse_string_pool_chunk(&package_chunks[1]).ok();
+            let type_strings = parse_string_pool_chunk(&package_chunks[0]).ok().unwrap();
+            let key_strings = parse_string_pool_chunk(&package_chunks[1]).ok().unwrap();
             println!("{:?}", pch);
             for sub_chunk in package_chunks {
                 if sub_chunk.typ == 0x201 {
-                    let rtth = try_parse!(
+                    let (_, rtth) = try_parse!(
                         sub_chunk.additional_header,
                         parse_resource_table_type_header
                     );
-                    let bod = parse_resource_table_type_body(sub_chunk.data, rtth.1.entry_count);
-                    println!("{:?}", bod);
+                    if let IResult::Done(_, entries) = parse_resource_table_type_body(sub_chunk.data, rtth.entry_count) {
+                        for entry in entries {
+                            if let Some(entry) = entry {
+                                if let Some(EntryData::Simple(d)) = entry.data {
+                                    if d.typ == 0x03 {
+                                        print!("{}:", key_strings.get(entry.key));
+                                        println!("{}", strings.get(d.value));
+                                    }
+                                }
+                                if let Some(EntryData::Complex(ds)) = entry.data {
+                                    println!("{}:", key_strings.get(entry.key));
+                                    for d in ds.mappings {
+                                        if d.value.typ == 0x03 {
+                                            println!(
+                                                "  {} {}",
+                                                key_strings.get(d.name & 0xffff),
+                                                strings.get(d.value.value)
+                                            );
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
                 }
-                println!("{:?}", sub_chunk.typ);
+                if sub_chunk.typ == 0x202 {
+                    let (_, head) = try_parse!(sub_chunk.additional_header, parse_resource_table_type_spec_head);
+                    let (_, entries) = try_parse!(sub_chunk.data, parse_resource_table_type_spec_entries);
+                    let mut configurations: HashSet<u32> = HashSet::new();
+                    println!("{:?}", head);
+                    for entry in entries {
+                        configurations.insert(entry);
+                    }
+                    println!("configs: {}", configurations.len());
+                } else {
+                    println!("{:x}", sub_chunk.typ);
+                }
             }
         }
     }
@@ -45,7 +85,7 @@ pub struct PackageChunkHeader {
     pub last_public_key: u32,
 }
 
-fn convert_zero_terminated_u16(data: &[u16]) -> String {
+pub fn convert_zero_terminated_u16(data: &[u16]) -> String {
     for (i, ch) in data.iter().enumerate() {
         if *ch == 0 {
             return String::from_utf16_lossy(&data[..i]);
@@ -54,7 +94,7 @@ fn convert_zero_terminated_u16(data: &[u16]) -> String {
     String::from_utf16_lossy(data)
 }
 
-fn convert_zero_terminated_u8(data: &[u8]) -> String {
+pub fn convert_zero_terminated_u8(data: &[u8]) -> String {
     for (i, ch) in data.iter().enumerate() {
         if *ch == 0 {
             return String::from_utf8_lossy(&data[..i]).to_string();
@@ -85,7 +125,7 @@ struct ResourceTableTypeHeader {
     id: u8,
     entry_count: usize,
     entries_start: usize,
-    config: ResourceTableConfig,
+    config: Configuration,
 }
 
 named!(parse_resource_table_type_header<&[u8], ResourceTableTypeHeader>, do_parse!(
@@ -102,113 +142,173 @@ named!(parse_resource_table_type_header<&[u8], ResourceTableTypeHeader>, do_pars
     })
 ));
 
-#[derive(Debug)]
-struct ResourceTableConfig {
-    imsi_mcc: u16,
-    imsi_mnc: u16,
-    //locale
-    language: String,
-    country: String,
-    //screen
-    orientation: u8,
-    touchscreen: u8,
-    density: u16,
-    //input
-    keyboard: u8,
-    navigation: u8,
-    input_flags: u8,
-    input_pad_0: u8,
 
-    screen_width: u16,
-    screen_height: u16,
-    //version
-    sdk_version: u16,
-    minor_version: u16,
 
-    screen_layout: u8,
-    ui_mode: u8,
-    smallest_screen_width_dp: u16,
 
-    screen_width_dp: u16,
-    screen_height_dp: u16,
 
-    locale_script: String,
-    locale_variant: String,
+fn parse_resource_table_type_body(
+    input: &[u8],
+    entry_count: usize,
+) -> IResult<&[u8], Vec<Option<Entry>>> {
+    let (rest, offsets) = try_parse!(
+        input,
+        do_parse!(offsets: count!(le_u32, entry_count) >> (offsets))
+    );
+    let mut entries: Vec<Option<Entry>> = Vec::with_capacity(entry_count);
 
-    screen_layout2: u8,
-    color_mode: u8,
-    locale_script_was_computed: bool,
+    for offset in offsets {
+        if offset != 0xff_ff_ff_ff {
+            let (re, mut entry) = try_parse!(&rest[offset as usize..], parse_entry);
+            if entry.is_complex() {
+                let (_, map) = try_parse!(re, parse_resource_table_map_entry);
+                entry.data = Some(EntryData::Complex(map));
+                entries.push(Some(entry));
+            } else {
+                let (_, val) = try_parse!(re, parse_res_value);
+                entry.data = Some(EntryData::Simple(val));
+                entries.push(Some(entry));
+            }
+        } else {
+            entries.push(None);
+        }
+    }
 
-    locale_numbering_system: String,
+    IResult::Done(&[], entries)
 }
 
-named!(parse_resource_table_config<&[u8], ResourceTableConfig>, do_parse!(
-    size: le_u32 >>
-    imsi_mcc: le_u16 >>
-    imsi_mnc: le_u16 >>
-    language: take!(2) >>
-    country: take!(2) >>
-    orientation: le_u8 >>
-    touchscreen: le_u8 >>
-    density: le_u16 >>
-    keyboard: le_u8 >>
-    navigation: le_u8 >>
-    input_flags: le_u8 >>
-    input_pad_0: le_u8 >>
-    screen_width: le_u16 >>
-    screen_height: le_u16 >>
-    sdk_version: le_u16 >>
-    minor_version: le_u16 >>
-    screen_layout: le_u8 >>
-    ui_mode: le_u8 >>
-    smallest_screen_width_dp: le_u16 >>
+#[derive(Debug)]
+enum EntryData {
+    Simple(ResourceValue),
+    Complex(ResourceTableMapEntry),
+}
 
-    screen_width_dp: le_u16 >>
-    screen_height_dp: le_u16 >>
+#[derive(Debug)]
+struct Entry {
+    size: usize,
+    flags: u16,
+    key: u32,
+    data: Option<EntryData>,
+}
 
-    locale_script: take!(4) >>
-    locale_variant: take!(8) >>
+impl Entry {
+    fn is_complex(&self) -> bool {
+        self.flags & 0x0001 == 1
+    }
+}
 
-    screen_layout2: le_u8 >>
-    color_mode: le_u8 >>
-    screen_config_pad: take!(2) >>
-    locale_script_was_computed: le_u8 >>
-    locale_numbering_system: take!(8) >>
-    (ResourceTableConfig { 
-        imsi_mcc,
-        imsi_mnc,
-        language: convert_zero_terminated_u8(language),
-        country: convert_zero_terminated_u8(country),
-        orientation,
-        touchscreen,
-        density,
-        keyboard,
-        navigation,
-        input_flags,
-        input_pad_0,
-        screen_width,
-        screen_height,
-        sdk_version,
-        minor_version,
+named!(parse_entry<&[u8], Entry>, do_parse!(
+    size: le_u16 >>
+    flags: le_u16 >>
+    key: le_u32 >>
+    (Entry { size: size as usize, flags, key, data: None })
+));
 
-        screen_layout,
-        ui_mode,
-        smallest_screen_width_dp,
-        screen_width_dp,
-        screen_height_dp,
+#[derive(Debug)]
+struct ResourceTableMapping {
+    name: u32,
+    value: ResourceValue,
+}
 
-        locale_script: convert_zero_terminated_u8(locale_script),
-        locale_variant: convert_zero_terminated_u8(locale_variant),
+named!(parse_resource_table_mapping<&[u8], ResourceTableMapping>, do_parse!(
+    name: le_u32 >>
+    value: parse_res_value >>
+    (ResourceTableMapping { name, value })
+));
 
-        screen_layout2,
-        color_mode,
-        locale_script_was_computed: locale_script_was_computed == 1,
-        locale_numbering_system: convert_zero_terminated_u8(locale_numbering_system),
+#[derive(Debug)]
+struct ResourceTableMapEntry {
+    parent: u32,
+    count: u32,
+    mappings: Vec<ResourceTableMapping>,
+}
+
+named!(parse_resource_table_map_entry<&[u8], ResourceTableMapEntry>, do_parse!(
+    parent: le_u32 >>
+    count: le_u32 >>
+    mappings: count!(parse_resource_table_mapping, count as usize) >>
+    (ResourceTableMapEntry {
+        parent,
+        count,
+        mappings,
     })
 ));
 
-fn parse_resource_table_type_body(input: &[u8], entry_count: usize) -> IResult<&[u8], Vec<u32>> {
-    do_parse!(input,
-        offsets: count!(le_u32, entry_count) >>
-    (offsets))
+#[derive(Debug)]
+struct ResourceTableTypeSpec {
+    id: u8,
+    entry_count: usize,
+}
+
+named!(parse_resource_table_type_spec_head<&[u8],ResourceTableTypeSpec>, do_parse!(
+    id: le_u8 >>
+    take!(3) >>
+    entry_count: le_u32 >>
+    (ResourceTableTypeSpec {
+        id,
+        entry_count: entry_count as usize
+    })
+));
+
+named!(parse_resource_table_type_spec_entries<&[u8],Vec<u32>>, do_parse!(
+    entries: many0!(le_u32) >>
+    (entries)
+));
+
+
+enum ConfigurationBits {
+    MCC,
+    MNC,
+    Locale,
+    Touchscreen,
+    Keyboard,
+    KeyboardHidden,
+    Navigation,
+    Orientation,
+    Density,
+    ScreenSize,
+    Version,
+    ScreenLayout,
+    UiMode,
+    SmallestScreenSize,
+    LayoutDirection,
+    ScreenRound,
+    ColorMode,
+}
+
+impl From<u32> for ConfigurationBits {
+    fn from(n: u32) -> ConfigurationBits {
+        match n {
+            0x0001 => ConfigurationBits::MCC,
+            0x0002 => ConfigurationBits::MNC,
+            0x0004 => ConfigurationBits::Locale,
+            0x0008 => ConfigurationBits::Touchscreen,
+            0x0010 => ConfigurationBits::Keyboard,
+            0x0020 => ConfigurationBits::KeyboardHidden,
+            0x0040 => ConfigurationBits::Navigation,
+            0x0080 => ConfigurationBits::Orientation,
+            0x0100 => ConfigurationBits::Density,
+            0x0200 => ConfigurationBits::ScreenSize,
+            0x0400 => ConfigurationBits::Version,
+            0x0800 => ConfigurationBits::ScreenLayout,
+            0x1000 => ConfigurationBits::UiMode,
+            0x2000 => ConfigurationBits::SmallestScreenSize,
+            0x4000 => ConfigurationBits::LayoutDirection,
+            0x8000 => ConfigurationBits::ScreenRound,
+            0x10000 => ConfigurationBits::ColorMode,
+            n => unimplemented!("unknown configuration dimension: {}", n),
+        }
+    }
+}
+
+fn get_configuration_dimensions(flags: u32) -> Vec<ConfigurationBits> {
+    let mut result: Vec<ConfigurationBits> = Vec::new();
+    let mut mask = 1;
+    for _ in 0..31 {
+        let v = flags & mask;
+        if v != 0 {
+            result.push(v.into());
+        }
+        mask = mask << 1;
+    }
+    vec![ConfigurationBits::MCC]
 }

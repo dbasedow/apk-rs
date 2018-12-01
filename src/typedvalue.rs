@@ -20,24 +20,24 @@ pub enum TypedValue {
 }
 
 impl TypedValue {
-    pub fn from(typed_value: (u8, u32), strings: &StringPool) -> TypedValue {
-        match typed_value.0 {
-            0x01 => TypedValue::Reference(typed_value.1),
-            0x02 => TypedValue::Attribute(typed_value.1),
-            0x03 => TypedValue::String(strings.get(typed_value.1)),
+    pub fn from(typed_value: ResourceValue, strings: &StringPool) -> TypedValue {
+        match typed_value.typ {
+            0x01 => TypedValue::Reference(typed_value.value),
+            0x02 => TypedValue::Attribute(typed_value.value),
+            0x03 => TypedValue::String(strings.get(typed_value.value)),
             0x04 => unsafe {
-                let f = mem::transmute::<u32, f32>(typed_value.1);
+                let f = mem::transmute::<u32, f32>(typed_value.value);
                 TypedValue::Float(f)
             },
-            0x05 => TypedValue::Dimension(typed_value.1),
-            0x06 => TypedValue::Fraction(typed_value.1),
-            0x10 => TypedValue::IntDecimal(typed_value.1 as i32),
-            0x11 => TypedValue::IntHex(typed_value.1 as i32),
-            0x12 => TypedValue::Boolean(typed_value.1 == 1),
-            0x1c => TypedValue::Argb8(typed_value.1),
-            0x1d => TypedValue::Rgb8(typed_value.1),
-            0x1e => TypedValue::Argb4(typed_value.1),
-            0x1f => TypedValue::Rgb4(typed_value.1),
+            0x05 => TypedValue::Dimension(typed_value.value),
+            0x06 => TypedValue::Fraction(typed_value.value),
+            0x10 => TypedValue::IntDecimal(typed_value.value as i32),
+            0x11 => TypedValue::IntHex(typed_value.value as i32),
+            0x12 => TypedValue::Boolean(typed_value.value == 1),
+            0x1c => TypedValue::Argb8(typed_value.value),
+            0x1d => TypedValue::Rgb8(typed_value.value),
+            0x1e => TypedValue::Argb4(typed_value.value),
+            0x1f => TypedValue::Rgb4(typed_value.value),
             t => panic!("unknown value type {}", t),
         }
     }
@@ -48,7 +48,7 @@ impl TypedValue {
             TypedValue::Attribute(a) => format!("@attr/0x{:x}", a),
             TypedValue::String(s) => s.clone(),
             TypedValue::Float(f) => format!("{}", f),
-            TypedValue::Dimension(d) => format!("dimension({})", d),
+            TypedValue::Dimension(d) => format!("dimension({})", d), //TODO: the unit is encoded in the value
             TypedValue::Fraction(f) => format!("fraction({})", f),
             TypedValue::IntDecimal(d) => format!("{}", d),
             TypedValue::IntHex(d) => format!("0x{:x}", d),
@@ -63,11 +63,17 @@ impl TypedValue {
     }
 }
 
-named!(pub parse_typed_value<&[u8], (u8, u32)>, do_parse!(
+#[derive(Copy, Clone, Debug)]
+pub struct ResourceValue {
+    pub typ: u8,
+    pub value: u32,
+}
+
+named!(pub parse_res_value<&[u8], ResourceValue>, do_parse!(
     size: le_u16 >>
     take!(1) >>
     data_type: le_u8 >>
     data: le_u32 >>
     take!(size - 8) >>
-    ((data_type, data))
+    (ResourceValue {typ: data_type, value: data })
 ));

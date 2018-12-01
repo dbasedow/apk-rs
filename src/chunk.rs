@@ -1,4 +1,5 @@
-use crate::typedvalue::parse_typed_value;
+use crate::typedvalue::parse_res_value;
+use crate::typedvalue::ResourceValue;
 use nom::*;
 
 #[derive(Debug, Clone)]
@@ -72,14 +73,14 @@ pub struct RawAttribute {
     pub ns: u32,
     pub name: u32,
     pub raw_value: u32,
-    pub typed_value: (u8, u32),
+    pub typed_value: ResourceValue,
 }
 
 named!(parse_attribute<&[u8], RawAttribute>, do_parse!(
     ns: le_u32 >>
     name: le_u32 >>
     raw_value: le_u32 >>
-    typed_value: parse_typed_value >>
+    typed_value: parse_res_value >>
     (RawAttribute {ns, name, raw_value, typed_value})
 ));
 

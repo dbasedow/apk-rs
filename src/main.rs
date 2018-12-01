@@ -2,6 +2,7 @@ extern crate zip;
 #[macro_use]
 extern crate nom;
 use crate::parser::{is_binary_xml, XmlElementStream, XmlEvent};
+use crate::resources::parse_resource_table;
 use std::env;
 use std::fs::File;
 use std::io::Read;
@@ -15,12 +16,19 @@ fn main() {
 
     let ziter = zipiter::ZipIter::new(zip);
 
+    for b in ziter.filter(|b| b.0.ends_with(".arsc")) {
+        println!("{}", b.0);
+        parse_resource_table(&b.1);
+    }
+
+    /*
     for b in ziter
         .filter(|b| b.0.ends_with(".xml"))
         .filter(|b| is_binary_xml(&b.1[..]))
     {
         render_plain(&b.1);
     }
+    */
 }
 
 fn render_plain(data: &[u8]) {
@@ -75,6 +83,8 @@ fn extract_xml_by_name(apk: &str, name: &str) -> zip::result::ZipResult<Box<Vec<
 
 mod chunk;
 mod parser;
+mod resources;
 mod stringpool;
 mod typedvalue;
 mod zipiter;
+mod resource_config;

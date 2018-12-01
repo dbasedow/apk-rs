@@ -10,10 +10,7 @@ pub struct ZipIter<T: Read + Seek> {
 
 impl ZipIter<File> {
     pub fn new(zip: ZipArchive<File>) -> Self {
-        Self {
-            zip,
-            index: 0,
-        }
+        Self { zip, index: 0 }
     }
 }
 

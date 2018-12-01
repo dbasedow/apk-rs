@@ -134,12 +134,17 @@ pub fn parse_string_pool_chunk(chunk: &Chunk) -> Result<StringPool, ParseError> 
         if sph.style_count > 0 {
             let style_rest = &rest[(sph.style_start - sph.string_start) as usize..];
             for offset in style_offsets {
-                if let IResult::Done(_, styles_for_str) = parse_string_style_entries(&style_rest[offset as usize..]) {
+                if let IResult::Done(_, styles_for_str) =
+                    parse_string_style_entries(&style_rest[offset as usize..])
+                {
                     styles.push(styles_for_str);
                 }
             }
         }
-        return Ok(StringPool { pool: strings, styles });
+        return Ok(StringPool {
+            pool: strings,
+            styles,
+        });
     }
     Err(ParseError::WrongChunkType)
 }
