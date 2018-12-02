@@ -1,7 +1,7 @@
 use nom::*;
 use crate::resources::convert_zero_terminated_u8;
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub enum Orientation {
     Any,
     Portrait,
@@ -9,7 +9,18 @@ pub enum Orientation {
     Square,
 }
 
-#[derive(Debug)]
+impl Orientation {
+    fn to_string(&self) -> Option<String> {
+        match self {
+            Orientation::Any => None,
+            Orientation::Portrait => Some("port".to_string()),
+            Orientation::Landscape => Some("land".to_string()),
+            Orientation::Square => Some("square".to_string()),
+        }
+    }
+}
+
+#[derive(Debug, PartialEq)]
 pub enum Touchscreen {
     Any,
     NoTouch,
@@ -17,6 +28,18 @@ pub enum Touchscreen {
     Finger,
 }
 
+impl Touchscreen {
+    fn to_string(&self) -> Option<String> {
+        match self {
+            Touchscreen::Any => None,
+            Touchscreen::NoTouch => Some("notouch".to_string()),
+            Touchscreen::Stylus => Some("stylus".to_string()),
+            Touchscreen::Finger => Some("finger".to_string()),
+        }
+    }
+}
+
+#[derive(Debug, PartialEq)]
 pub enum Density {
     Default,
     Low,
@@ -30,6 +53,24 @@ pub enum Density {
     None,
 }
 
+impl Density {
+    fn to_string(&self) -> Option<String> {
+        match self {
+            Density::Low => Some("ldpi".to_string()),
+            Density::Medium => Some("mdpi".to_string()),
+            Density::High => Some("hdpi".to_string()),
+            Density::XHigh => Some("xhdpi".to_string()),
+            Density::XXHigh => Some("xxhdpi".to_string()),
+            Density::XXXHigh => Some("xxxhdpi".to_string()),
+            Density::TV => Some("tvdpi".to_string()),
+            Density::None => Some("nodpi".to_string()),
+            Density::Any => Some("anydpi".to_string()),
+            _ => None,
+        }
+    }
+}
+
+#[derive(Debug, PartialEq)]
 pub enum Keyboard {
     Any,
     NoKeys,
@@ -37,6 +78,18 @@ pub enum Keyboard {
     TwelveKey,
 }
 
+impl Keyboard {
+    fn to_string(&self) -> Option<String> {
+        match self {
+            Keyboard::Any => None,
+            Keyboard::NoKeys => Some("nokeys".to_string()),
+            Keyboard::QWERTY => Some("qwerty".to_string()),
+            Keyboard::TwelveKey => Some("12key".to_string()),
+        }
+    }
+}
+
+#[derive(Debug, PartialEq)]
 pub enum Navigation {
     Any,
     NoNav,
@@ -45,6 +98,19 @@ pub enum Navigation {
     Wheel,
 }
 
+impl Navigation {
+    fn to_string(&self) -> Option<String> {
+        match self {
+            Navigation::Any => None,
+            Navigation::NoNav => Some("nonav".to_string()),
+            Navigation::DPad => Some("dpad".to_string()),
+            Navigation::Trackball => Some("trackball".to_string()),
+            Navigation::Wheel => Some("wheel".to_string()),
+        }
+    }
+}
+
+#[derive(Debug, PartialEq)]
 pub enum KeysHidden {
     Any,
     No,
@@ -52,26 +118,57 @@ pub enum KeysHidden {
     Soft,
 }
 
+impl KeysHidden {
+    fn to_string(&self) -> Option<String> {
+        match self {
+            KeysHidden::Any => None,
+            KeysHidden::No => Some("keysexposed".to_string()),
+            KeysHidden::Yes => Some("keyshidden".to_string()),
+            KeysHidden::Soft => Some("keyssoft".to_string()),
+        }
+    }
+}
+
+#[derive(Debug, PartialEq)]
 pub enum ScreenWidth {
     Any,
     Some(u16),
 }
 
+#[derive(Debug, PartialEq)]
 pub enum ScreenHeight {
     Any,
     Some(u16),
 }
 
+#[derive(Debug, PartialEq)]
 pub enum SdkVersion {
     Any,
     Some(u16),
 }
 
+impl SdkVersion {
+    fn to_string(&self) -> Option<String> {
+        match self {
+            SdkVersion::Any => None,
+            SdkVersion::Some(v) => Some(format!("v{}", v)),
+        }
+    }
+}
+
+#[derive(Debug, PartialEq)]
 pub enum MinorVersion {
     Any,
     Some(u16),
 }
 
+impl MinorVersion {
+    fn to_string(&self) -> Option<String> {
+        None
+    }
+}
+
+#[derive(Debug, PartialEq)]
 pub enum ScreenSize {
     Any,
     Small,
@@ -80,13 +177,37 @@ pub enum ScreenSize {
     XLarge,
 }
 
+impl ScreenSize {
+    fn to_string(&self) -> Option<String> {
+        match self {
+            ScreenSize::Any => None,
+            ScreenSize::Small => Some("small".to_string()),
+            ScreenSize::Normal => Some("normal".to_string()),
+            ScreenSize::Large => Some("large".to_string()),
+            ScreenSize::XLarge => Some("xlarge".to_string()),
+        }
+    }
+}
+
+#[derive(Debug, PartialEq)]
 pub enum LayoutDirection {
     Any,
     LeftToRight,
     RightToLeft,
 }
 
-pub enum Mode {
+impl LayoutDirection {
+    fn to_string(&self) -> Option<String> {
+        match self {
+            LayoutDirection::Any => None,
+            LayoutDirection::LeftToRight => Some("ldltr".to_string()),
+            LayoutDirection::RightToLeft => Some("ldlrtl".to_string()),
+        }
+    }
+}
+
+#[derive(Debug, PartialEq)]
+pub enum UiMode {
     Any,
     Normal,
     Desk,
@@ -97,14 +218,50 @@ pub enum Mode {
     VRHeadset,
 }
 
+impl UiMode {
+    fn to_string(&self) -> Option<String> {
+        match self {
+            //UiMode::Any => None,
+            //UiMode::Normal => Some("normal"),
+            UiMode::Desk => Some("desk".to_string()),
+            UiMode::Car => Some("car".to_string()),
+            UiMode::Television => Some("television".to_string()),
+            UiMode::Appliance => Some("appliance".to_string()),
+            UiMode::Watch => Some("watch".to_string()),
+            UiMode::VRHeadset => Some("vrheadset".to_string()),
+            _ => None,
+        }
+    }
+}
+
+#[derive(Debug, PartialEq)]
 pub enum ScreenWidthDp {
     Any,
     Some(u16),
 }
 
+impl ScreenWidthDp {
+    fn to_string(&self) -> Option<String> {
+        match self {
+            ScreenWidthDp::Any => None,
+            ScreenWidthDp::Some(w) => Some(format!("w{}dp", w)),
+        }
+    }
+}
+
+#[derive(Debug, PartialEq)]
 pub enum ScreenHeightDp {
     Any,
     Some(u16),
+}
+
+impl ScreenHeightDp {
+    fn to_string(&self) -> Option<String> {
+        match self {
+            ScreenHeightDp::Any => None,
+            ScreenHeightDp::Some(w) => Some(format!("h{}dp", w)),
+        }
+    }
 }
 
 
@@ -117,6 +274,7 @@ ScreenRound
 WideColorGamut
 HDR
 */
+#[derive(Debug, PartialEq)]
 pub enum TripleState {
     Any,
     Yes,
@@ -127,8 +285,8 @@ named!(pub parse_resource_table_config<&[u8], Configuration>, do_parse!(
     size: le_u32 >>
     imsi_mcc: le_u16 >>
     imsi_mnc: le_u16 >>
-    language: take!(2) >>
-    country: take!(2) >>
+    language: be_u16 >>
+    country: be_u16 >>
     orientation: le_u8 >>
     touchscreen: le_u8 >>
     density: le_u16 >>
@@ -159,8 +317,8 @@ named!(pub parse_resource_table_config<&[u8], Configuration>, do_parse!(
     (Configuration {
         imsi_mcc,
         imsi_mnc,
-        language: convert_zero_terminated_u8(language),
-        country: convert_zero_terminated_u8(country),
+        language: language,
+        country: country,
         orientation,
         touchscreen,
         density,
@@ -195,8 +353,8 @@ pub struct Configuration {
     imsi_mcc: u16,
     imsi_mnc: u16,
     //locale
-    language: String,
-    country: String,
+    language: u16,
+    country: u16,
     //screen
     orientation: u8,
     touchscreen: u8,
@@ -231,13 +389,66 @@ pub struct Configuration {
     */
 }
 
+fn language_or_locale_to_string(v: u16) -> Option<String> {
+    if v == 0 {
+        return None;
+    }
+    if v & 0x8080 == 0 {
+        let hi = ((v & 0xff00) >> 8) as u8;
+        let lo = (v & 0x00ff) as u8;
+        let bs = vec![hi, lo];
+        let s = String::from_utf8(bs).unwrap();
+        return Some(s);
+    }
+    //TODO add support for three letter codes
+    None
+}
+
 impl Configuration {
     fn to_configuration_name(&self) -> String {
+        let mut s = String::new();
         "".to_string()
     }
 
     fn get_configuration_parts(&self) -> Vec<String> {
-        vec!["".to_string()]
+        let mut parts: Vec<String> = Vec::new();
+        //TODO: add MCC and MNC
+        if let Some(l) = self.language() {
+            parts.push(l);
+        }
+
+        if let Some(c) = self.country() {
+            parts.push(format!("r{}", c));
+        }
+
+        if let Some(ld) = self.screen_layout_direction().to_string() {
+            parts.push(ld);
+        }
+
+        if let Some(sw) = self.smallest_screen_width_dp() {
+            parts.push(format!("sw{}dp", sw));
+        }
+
+        if let Some(sw) = self.screen_width_dp().to_string() {
+            parts.push(sw);
+        }
+
+        if let Some(sh) = self.screen_height_dp().to_string() {
+            parts.push(sh);
+        }
+
+        if let Some(s) = self.screen_size().to_string() {
+            parts.push(s);
+        }
+        parts
+    }
+
+    pub fn language(&self) -> Option<String> {
+        language_or_locale_to_string(self.language)
+    }
+
+    pub fn country(&self) -> Option<String> {
+        language_or_locale_to_string(self.country)
     }
 
     pub fn orientation(&self) -> Orientation {
@@ -377,16 +588,16 @@ impl Configuration {
         }
     }
 
-    pub fn mode(&self) -> Mode {
+    pub fn mode(&self) -> UiMode {
         match self.ui_mode & 0x0f {
-            0x00 => Mode::Any,
-            0x01 => Mode::Normal,
-            0x02 => Mode::Desk,
-            0x03 => Mode::Car,
-            0x04 => Mode::Television,
-            0x05 => Mode::Appliance,
-            0x06 => Mode::Watch,
-            0x07 => Mode::VRHeadset,
+            0x00 => UiMode::Any,
+            0x01 => UiMode::Normal,
+            0x02 => UiMode::Desk,
+            0x03 => UiMode::Car,
+            0x04 => UiMode::Television,
+            0x05 => UiMode::Appliance,
+            0x06 => UiMode::Watch,
+            0x07 => UiMode::VRHeadset,
             n => unimplemented!("unknown ui mode {}", n),
         }
     }
@@ -408,19 +619,19 @@ impl Configuration {
         }
     }
 
-    pub fn screen_width_dp(&self) -> Option<u16> {
+    pub fn screen_width_dp(&self) -> ScreenWidthDp {
         if self.screen_width_dp != 0 {
-            Some(self.screen_width_dp)
+            ScreenWidthDp::Some(self.screen_width_dp)
         } else {
-            None
+            ScreenWidthDp::Any
         }
     }
 
-    pub fn screen_height_dp(&self) -> Option<u16> {
+    pub fn screen_height_dp(&self) -> ScreenHeightDp {
         if self.screen_height_dp != 0 {
-            Some(self.screen_height_dp)
+            ScreenHeightDp::Some(self.screen_height_dp)
         } else {
-            None
+            ScreenHeightDp::Any
         }
     }
 
