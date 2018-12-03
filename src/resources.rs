@@ -27,6 +27,7 @@ pub fn parse_resource_table(data: &[u8]) -> IResult<&[u8], ()> {
                         sub_chunk.additional_header,
                         parse_resource_table_type_header
                     );
+                    println!("{:?}", rtth.config.to_configuration_name());
                     if let IResult::Done(_, entries) = parse_resource_table_type_body(sub_chunk.data, rtth.entry_count) {
                         for entry in entries {
                             if let Some(entry) = entry {

@@ -405,9 +405,21 @@ fn language_or_locale_to_string(v: u16) -> Option<String> {
 }
 
 impl Configuration {
-    fn to_configuration_name(&self) -> String {
+    pub fn to_configuration_name(&self) -> Option<String> {
+        let parts = self.get_configuration_parts();
+        if parts.len() == 0 {
+            return None;
+        }
+
         let mut s = String::new();
-        "".to_string()
+        for (i, p) in parts.iter().enumerate() {
+            if i != 0 {
+                s.push('-');
+            }
+            s.push_str(&p[..]);
+        }
+
+        Some(s)
     }
 
     fn get_configuration_parts(&self) -> Vec<String> {
@@ -440,6 +452,42 @@ impl Configuration {
         if let Some(s) = self.screen_size().to_string() {
             parts.push(s);
         }
+
+        //....
+
+        if let Some(o) = self.orientation().to_string() {
+            parts.push(o);
+        }
+
+        if let Some(s) = self.mode().to_string() {
+            parts.push(s);
+        }
+
+        if let Some(s) = self.density().to_string() {
+            parts.push(s);
+        }
+
+        if let Some(s) = self.touchscreen().to_string() {
+            parts.push(s);
+        }
+
+        if let Some(s) = self.keyboard().to_string() {
+            parts.push(s);
+        }
+
+        if let Some(s) = self.keys_hidden().to_string() {
+            parts.push(s);
+        }
+
+        if let Some(s) = self.navigation().to_string() {
+            parts.push(s);
+        }
+
+        if let Some(s) = self.sdk_version().to_string() {
+            parts.push(s);
+        }
+
+
         parts
     }
 
@@ -543,11 +591,11 @@ impl Configuration {
         }
     }
 
-    pub fn sdk_version(&self) -> Option<u16> {
+    pub fn sdk_version(&self) -> SdkVersion {
         if self.sdk_version != 0 {
-            Some(self.sdk_version)
+            SdkVersion::Some(self.sdk_version)
         } else {
-            None
+            SdkVersion::Any
         }
     }
 
