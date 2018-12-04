@@ -20,6 +20,18 @@ impl Orientation {
     }
 }
 
+impl From<u8> for Orientation {
+    fn from(orientation: u8) -> Self {
+        match orientation {
+            0x00 => Orientation::Any,
+            0x01 => Orientation::Portrait,
+            0x02 => Orientation::Landscape,
+            0x03 => Orientation::Square,
+            n => unimplemented!("unknown orientation {}", n),
+        }
+    }
+}
+
 #[derive(Debug, PartialEq)]
 pub enum Touchscreen {
     Any,
@@ -35,6 +47,18 @@ impl Touchscreen {
             Touchscreen::NoTouch => Some("notouch".to_string()),
             Touchscreen::Stylus => Some("stylus".to_string()),
             Touchscreen::Finger => Some("finger".to_string()),
+        }
+    }
+}
+
+impl From<u8> for Touchscreen {
+    fn from(touchscreen: u8) -> Touchscreen {
+        match touchscreen {
+            0x00 => Touchscreen::Any,
+            0x01 => Touchscreen::NoTouch,
+            0x02 => Touchscreen::Stylus,
+            0x03 => Touchscreen::Finger,
+            n => unimplemented!("unknown touchscreen {}", n),
         }
     }
 }
@@ -70,6 +94,24 @@ impl Density {
     }
 }
 
+impl From<u16> for Density {
+    fn from(density: u16) -> Density {
+        match density {
+            0 => Density::Default,
+            120 => Density::Low,
+            160 => Density::Medium,
+            213 => Density::TV,
+            240 => Density::High,
+            320 => Density::XHigh,
+            480 => Density::XXHigh,
+            640 => Density::XXXHigh,
+            0xfffe => Density::Any,
+            0xffff => Density::None,
+            n => unimplemented!("unknown density {}", n),
+        }
+    }
+}
+
 #[derive(Debug, PartialEq)]
 pub enum Keyboard {
     Any,
@@ -85,6 +127,18 @@ impl Keyboard {
             Keyboard::NoKeys => Some("nokeys".to_string()),
             Keyboard::QWERTY => Some("qwerty".to_string()),
             Keyboard::TwelveKey => Some("12key".to_string()),
+        }
+    }
+}
+
+impl From<u8> for Keyboard {
+    fn from(keyboard: u8) -> Keyboard {
+        match keyboard {
+            0x00 => Keyboard::Any,
+            0x01 => Keyboard::NoKeys,
+            0x02 => Keyboard::QWERTY,
+            0x03 => Keyboard::TwelveKey,
+            n => unimplemented!("unknown keyboard {}", n),
         }
     }
 }
@@ -110,6 +164,19 @@ impl Navigation {
     }
 }
 
+impl From<u8> for Navigation {
+    fn from(navigation: u8) -> Navigation {
+        match navigation {
+            0x00 => Navigation::Any,
+            0x01 => Navigation::NoNav,
+            0x02 => Navigation::DPad,
+            0x03 => Navigation::Trackball,
+            0x04 => Navigation::Wheel,
+            n => unimplemented!("unknown navigation {}", n),
+        }
+    }
+}
+
 #[derive(Debug, PartialEq)]
 pub enum KeysHidden {
     Any,
@@ -125,6 +192,18 @@ impl KeysHidden {
             KeysHidden::No => Some("keysexposed".to_string()),
             KeysHidden::Yes => Some("keyshidden".to_string()),
             KeysHidden::Soft => Some("keyssoft".to_string()),
+        }
+    }
+}
+
+impl From<u8> for KeysHidden {
+    fn from(input_flags: u8) -> KeysHidden {
+        match input_flags & 0x03 {
+            0 => KeysHidden::Any,
+            1 => KeysHidden::No,
+            2 => KeysHidden::Yes,
+            3 => KeysHidden::Soft,
+            n => unimplemented!("unknown keys_hidden {}", n),
         }
     }
 }
@@ -152,6 +231,16 @@ impl SdkVersion {
         match self {
             SdkVersion::Any => None,
             SdkVersion::Some(v) => Some(format!("v{}", v)),
+        }
+    }
+}
+
+impl From<u16> for SdkVersion {
+    fn from(sdk_version: u16) -> SdkVersion {
+        if sdk_version != 0 {
+            SdkVersion::Some(sdk_version)
+        } else {
+            SdkVersion::Any
         }
     }
 }
@@ -234,6 +323,22 @@ impl UiMode {
     }
 }
 
+impl From<u8> for UiMode {
+    fn from(mode: u8) -> UiMode {
+        match mode & 0x0f {
+            0x00 => UiMode::Any,
+            0x01 => UiMode::Normal,
+            0x02 => UiMode::Desk,
+            0x03 => UiMode::Car,
+            0x04 => UiMode::Television,
+            0x05 => UiMode::Appliance,
+            0x06 => UiMode::Watch,
+            0x07 => UiMode::VRHeadset,
+            n => unimplemented!("unknown ui mode {}", n),
+        }
+    }
+}
+
 #[derive(Debug, PartialEq)]
 pub enum ScreenWidthDp {
     Any,
@@ -249,6 +354,16 @@ impl ScreenWidthDp {
     }
 }
 
+impl From<u16> for ScreenWidthDp {
+    fn from(screen_width_dp: u16) -> ScreenWidthDp {
+        if screen_width_dp != 0 {
+            ScreenWidthDp::Some(screen_width_dp)
+        } else {
+            ScreenWidthDp::Any
+        }
+    }
+}
+
 #[derive(Debug, PartialEq)]
 pub enum ScreenHeightDp {
     Any,
@@ -260,6 +375,16 @@ impl ScreenHeightDp {
         match self {
             ScreenHeightDp::Any => None,
             ScreenHeightDp::Some(w) => Some(format!("h{}dp", w)),
+        }
+    }
+}
+
+impl From<u16> for ScreenHeightDp {
+    fn from(screen_height_dp: u16) -> ScreenHeightDp {
+        if screen_height_dp != 0 {
+            ScreenHeightDp::Some(screen_height_dp)
+        } else {
+            ScreenHeightDp::Any
         }
     }
 }
@@ -310,40 +435,34 @@ named!(pub parse_resource_table_config<&[u8], Configuration>, do_parse!(
     screen_layout2: le_u8 >>
     color_mode: le_u8 >>
     take!(2) >>
-/*
-    locale_script_was_computed: le_u8 >>
-    locale_numbering_system: take!(8) >>
-    */
     (Configuration {
         imsi_mcc,
         imsi_mnc,
         language: language,
         country: country,
-        orientation,
-        touchscreen,
-        density,
-        keyboard,
-        navigation,
+        orientation: orientation.into(),
+        touchscreen: touchscreen.into(),
+        density: density.into(),
+        keyboard: keyboard.into(),
+        navigation: navigation.into(),
+        keys_hidden: input_flags.into(),
         input_flags,
         screen_width,
         screen_height,
-        sdk_version,
+        sdk_version: sdk_version.into(),
         minor_version,
 
         screen_layout,
-        ui_mode,
+        ui_mode: ui_mode.into(),
+        mode: ui_mode,
         smallest_screen_width_dp,
-        screen_width_dp,
-        screen_height_dp,
+        screen_width_dp: screen_width_dp.into(),
+        screen_height_dp: screen_height_dp.into(),
         locale_script: convert_zero_terminated_u8(locale_script),
         locale_variant: convert_zero_terminated_u8(locale_variant),
 
         screen_layout2,
         color_mode,
-/*
-        locale_script_was_computed: locale_script_was_computed == 1,
-        locale_numbering_system: convert_zero_terminated_u8(locale_numbering_system),
-        */
     })
 ));
 
@@ -356,37 +475,34 @@ pub struct Configuration {
     language: u16,
     country: u16,
     //screen
-    orientation: u8,
-    touchscreen: u8,
-    density: u16,
+    orientation: Orientation,
+    touchscreen: Touchscreen,
+    density: Density,
     //input
-    keyboard: u8,
-    navigation: u8,
+    keyboard: Keyboard,
+    navigation: Navigation,
+    keys_hidden: KeysHidden,
     input_flags: u8,
 
     screen_width: u16,
     screen_height: u16,
     //version
-    sdk_version: u16,
+    sdk_version: SdkVersion,
     minor_version: u16,
 
     screen_layout: u8,
-    ui_mode: u8,
+    mode: u8,
+    ui_mode: UiMode,
     smallest_screen_width_dp: u16,
 
-    screen_width_dp: u16,
-    screen_height_dp: u16,
+    screen_width_dp: ScreenWidthDp,
+    screen_height_dp: ScreenHeightDp,
 
     locale_script: String,
     locale_variant: String,
 
     screen_layout2: u8,
     color_mode: u8,
-    /*
-    locale_script_was_computed: bool,
-
-    locale_numbering_system: String,
-    */
 }
 
 fn language_or_locale_to_string(v: u16) -> Option<String> {
@@ -441,11 +557,11 @@ impl Configuration {
             parts.push(format!("sw{}dp", sw));
         }
 
-        if let Some(sw) = self.screen_width_dp().to_string() {
+        if let Some(sw) = self.screen_width_dp.to_string() {
             parts.push(sw);
         }
 
-        if let Some(sh) = self.screen_height_dp().to_string() {
+        if let Some(sh) = self.screen_height_dp.to_string() {
             parts.push(sh);
         }
 
@@ -455,35 +571,35 @@ impl Configuration {
 
         //....
 
-        if let Some(o) = self.orientation().to_string() {
+        if let Some(o) = self.orientation.to_string() {
             parts.push(o);
         }
 
-        if let Some(s) = self.mode().to_string() {
+        if let Some(s) = self.ui_mode.to_string() {
             parts.push(s);
         }
 
-        if let Some(s) = self.density().to_string() {
+        if let Some(s) = self.density.to_string() {
             parts.push(s);
         }
 
-        if let Some(s) = self.touchscreen().to_string() {
+        if let Some(s) = self.touchscreen.to_string() {
             parts.push(s);
         }
 
-        if let Some(s) = self.keyboard().to_string() {
+        if let Some(s) = self.keyboard.to_string() {
             parts.push(s);
         }
 
-        if let Some(s) = self.keys_hidden().to_string() {
+        if let Some(s) = self.keys_hidden.to_string() {
             parts.push(s);
         }
 
-        if let Some(s) = self.navigation().to_string() {
+        if let Some(s) = self.navigation.to_string() {
             parts.push(s);
         }
 
-        if let Some(s) = self.sdk_version().to_string() {
+        if let Some(s) = self.sdk_version.to_string() {
             parts.push(s);
         }
 
@@ -499,72 +615,6 @@ impl Configuration {
         language_or_locale_to_string(self.country)
     }
 
-    pub fn orientation(&self) -> Orientation {
-        match self.orientation {
-            0x00 => Orientation::Any,
-            0x01 => Orientation::Portrait,
-            0x02 => Orientation::Landscape,
-            0x03 => Orientation::Square,
-            n => unimplemented!("unknown orientation {}", n),
-        }
-    }
-
-    pub fn touchscreen(&self) -> Touchscreen {
-        match self.touchscreen {
-            0x00 => Touchscreen::Any,
-            0x01 => Touchscreen::NoTouch,
-            0x02 => Touchscreen::Stylus,
-            0x03 => Touchscreen::Finger,
-            n => unimplemented!("unknown touchscreen {}", n),
-        }
-    }
-
-    pub fn density(&self) -> Density {
-        match self.density {
-            0 => Density::Default,
-            120 => Density::Low,
-            160 => Density::Medium,
-            213 => Density::TV,
-            240 => Density::High,
-            320 => Density::XHigh,
-            480 => Density::XXHigh,
-            640 => Density::XXXHigh,
-            0xfffe => Density::Any,
-            0xffff => Density::None,
-            n => unimplemented!("unknown density {}", n),
-        }
-    }
-
-    pub fn keyboard(&self) -> Keyboard {
-        match self.keyboard {
-            0x00 => Keyboard::Any,
-            0x01 => Keyboard::NoKeys,
-            0x02 => Keyboard::QWERTY,
-            0x03 => Keyboard::TwelveKey,
-            n => unimplemented!("unknown keyboard {}", n),
-        }
-    }
-
-    pub fn navigation(&self) -> Navigation {
-        match self.navigation {
-            0x00 => Navigation::Any,
-            0x01 => Navigation::NoNav,
-            0x02 => Navigation::DPad,
-            0x03 => Navigation::Trackball,
-            0x04 => Navigation::Wheel,
-            n => unimplemented!("unknown navigation {}", n),
-        }
-    }
-
-    pub fn keys_hidden(&self) -> KeysHidden {
-        match self.input_flags & 0x03 {
-            0 => KeysHidden::Any,
-            1 => KeysHidden::No,
-            2 => KeysHidden::Yes,
-            3 => KeysHidden::Soft,
-            n => unimplemented!("unknown keys_hidden {}", n),
-        }
-    }
 
     pub fn nav_hidden(&self) -> TripleState {
         match (self.input_flags & 0x0c) >> 2 {
@@ -588,14 +638,6 @@ impl Configuration {
             Some(self.screen_height)
         } else {
             None
-        }
-    }
-
-    pub fn sdk_version(&self) -> SdkVersion {
-        if self.sdk_version != 0 {
-            SdkVersion::Some(self.sdk_version)
-        } else {
-            SdkVersion::Any
         }
     }
 
@@ -636,22 +678,8 @@ impl Configuration {
         }
     }
 
-    pub fn mode(&self) -> UiMode {
-        match self.ui_mode & 0x0f {
-            0x00 => UiMode::Any,
-            0x01 => UiMode::Normal,
-            0x02 => UiMode::Desk,
-            0x03 => UiMode::Car,
-            0x04 => UiMode::Television,
-            0x05 => UiMode::Appliance,
-            0x06 => UiMode::Watch,
-            0x07 => UiMode::VRHeadset,
-            n => unimplemented!("unknown ui mode {}", n),
-        }
-    }
-
     pub fn night_mode(&self) -> TripleState {
-        match (self.ui_mode & 0x30) >> 4 {
+        match (self.mode & 0x30) >> 4 {
             0x00 => TripleState::Any,
             0x01 => TripleState::No,
             0x02 => TripleState::Yes,
@@ -664,22 +692,6 @@ impl Configuration {
             Some(self.smallest_screen_width_dp)
         } else {
             None
-        }
-    }
-
-    pub fn screen_width_dp(&self) -> ScreenWidthDp {
-        if self.screen_width_dp != 0 {
-            ScreenWidthDp::Some(self.screen_width_dp)
-        } else {
-            ScreenWidthDp::Any
-        }
-    }
-
-    pub fn screen_height_dp(&self) -> ScreenHeightDp {
-        if self.screen_height_dp != 0 {
-            ScreenHeightDp::Some(self.screen_height_dp)
-        } else {
-            ScreenHeightDp::Any
         }
     }
 
