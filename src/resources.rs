@@ -5,6 +5,7 @@ use crate::typedvalue::ResourceValue;
 use crate::typedvalue::{parse_res_value, TypedValue};
 use nom::*;
 use std::collections::HashSet;
+use crate::stringpool::StringPool;
 
 pub fn parse_resource_table(data: &[u8]) -> IResult<&[u8], ()> {
     let (_, main_chunk) = try_parse!(data, parse_chunk);
@@ -27,7 +28,7 @@ pub fn parse_resource_table(data: &[u8]) -> IResult<&[u8], ()> {
                         sub_chunk.additional_header,
                         parse_resource_table_type_header
                     );
-                    println!("{:?}", rtth.config.to_configuration_name());
+                    println!("res/{:?}/{}", rtth.config.to_configuration_name(), type_strings.get((rtth.id - 1) as u32));
                     if let IResult::Done(_, entries) = parse_resource_table_type_body(sub_chunk.data, rtth.entry_count) {
                         for entry in entries {
                             if let Some(entry) = entry {
@@ -312,4 +313,39 @@ fn get_configuration_dimensions(flags: u32) -> Vec<ConfigurationBits> {
         mask = mask << 1;
     }
     vec![ConfigurationBits::MCC]
+}
+
+
+//////////////////////
+
+fn get_resource_type_from_id(id: u32) -> u8 {
+    ((id & 0x00ff0000) >> 16) as u8
+}
+
+struct ResourceData {
+    //Configuration
+    config: Configuration,
+    values: Vec<ResourceValue>,
+}
+
+struct ResourceType {
+    name: String,
+    data: Vec<ResourceData>,
+}
+
+struct Resources {
+    //configuration to check against
+    config: Option<Configuration>,
+    resource_types: Vec<ResourceType>,
+
+    //String tables
+    values: StringPool,
+    keys: StringPool,
+    types: StringPool,
+}
+
+impl Resources {
+    pub fn get_string_by_id(&self, id: u32) -> String {
+        "".into()
+    }
 }

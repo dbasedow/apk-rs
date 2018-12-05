@@ -278,6 +278,19 @@ impl ScreenSize {
     }
 }
 
+impl From<u8> for ScreenSize {
+    fn from(screen_layout: u8) -> ScreenSize {
+        match screen_layout & 0xf {
+            0x00 => ScreenSize::Any,
+            0x01 => ScreenSize::Small,
+            0x02 => ScreenSize::Normal,
+            0x03 => ScreenSize::Large,
+            0x04 => ScreenSize::XLarge,
+            n => unimplemented!("unknown screen size {}", n),
+        }
+    }
+}
+
 #[derive(Debug, PartialEq)]
 pub enum LayoutDirection {
     Any,
@@ -291,6 +304,17 @@ impl LayoutDirection {
             LayoutDirection::Any => None,
             LayoutDirection::LeftToRight => Some("ldltr".to_string()),
             LayoutDirection::RightToLeft => Some("ldlrtl".to_string()),
+        }
+    }
+}
+
+impl From<u8> for LayoutDirection {
+    fn from(screen_layout: u8) -> Self {
+        match (screen_layout & 0xC0) >> 6 {
+            0x00 => LayoutDirection::Any,
+            0x01 => LayoutDirection::LeftToRight,
+            0x02 => LayoutDirection::RightToLeft,
+            n => unimplemented!("unknown layout direction {}", n),
         }
     }
 }
@@ -392,9 +416,6 @@ impl From<u16> for ScreenHeightDp {
 
 /**
 For:
-NavigationHidden
-ScreenLong
-ModeNight
 ScreenRound
 WideColorGamut
 HDR
@@ -404,6 +425,150 @@ pub enum TripleState {
     Any,
     Yes,
     No,
+}
+
+#[derive(Debug)]
+struct ScreenLong(TripleState);
+
+impl ScreenLong {
+    fn to_string(&self) -> Option<String> {
+        match self.0 {
+            TripleState::Any => None,
+            TripleState::Yes => Some("long".into()),
+            TripleState::No => Some("notlong".into()),
+        }
+    }
+}
+
+impl From<u8> for ScreenLong {
+    fn from(screen_layout: u8) -> ScreenLong {
+        match (screen_layout & 0x30) >> 4 {
+            0x00 => ScreenLong(TripleState::Any),
+            0x01 => ScreenLong(TripleState::No),
+            0x02 => ScreenLong(TripleState::Yes),
+            n => unimplemented!("unknown screen long {}", n),
+        }
+    }
+}
+
+#[derive(Debug)]
+struct NightMode(TripleState);
+
+impl NightMode {
+    fn to_string(&self) -> Option<String> {
+        match self.0 {
+            TripleState::Any => None,
+            TripleState::Yes => Some("night".into()),
+            TripleState::No => Some("notnight".into()),
+        }
+    }
+}
+
+impl From<u8> for NightMode {
+    fn from(mode: u8) -> Self {
+        match (mode & 0x30) >> 4 {
+            0x00 => Self(TripleState::Any),
+            0x01 => Self(TripleState::No),
+            0x02 => Self(TripleState::Yes),
+            n => unimplemented!("unknown night mode {}", n),
+        }
+    }
+}
+
+#[derive(Debug)]
+struct NavigationHidden(TripleState);
+
+impl NavigationHidden {
+    fn to_string(&self) -> Option<String> {
+        match self.0 {
+            TripleState::Any => None,
+            TripleState::Yes => Some("navexposed".into()),
+            TripleState::No => Some("navhidden".into()),
+        }
+    }
+}
+
+impl From<u8> for NavigationHidden {
+    fn from(input_flags: u8) -> Self {
+        match (input_flags & 0x0c) >> 2 {
+            0x00 => Self(TripleState::Any),
+            0x01 => Self(TripleState::No),
+            0x02 => Self(TripleState::Yes),
+            n => unimplemented!("unknown nav hidden {}", n),
+        }
+    }
+}
+
+#[derive(Debug)]
+struct WideColorGamut(TripleState);
+
+impl WideColorGamut {
+    fn to_string(&self) -> Option<String> {
+        match self.0 {
+            TripleState::Any => None,
+            TripleState::Yes => Some("widecg".into()),
+            TripleState::No => Some("nowidecg".into()),
+        }
+    }
+}
+
+impl From<u8> for WideColorGamut {
+    fn from(color_mode: u8) -> Self {
+        match (color_mode & 0x03) {
+            0x00 => Self(TripleState::Any),
+            0x01 => Self(TripleState::No),
+            0x02 => Self(TripleState::Yes),
+            n => unimplemented!("unknown wide color gamut {}", n),
+        }
+    }
+}
+
+#[derive(Debug)]
+struct HighDynamicRange(TripleState);
+
+impl HighDynamicRange {
+    fn to_string(&self) -> Option<String> {
+        match self.0 {
+            TripleState::Any => None,
+            TripleState::Yes => Some("highdr".into()),
+            TripleState::No => Some("lowdr".into()),
+        }
+    }
+}
+
+impl From<u8> for HighDynamicRange {
+    fn from(color_mode: u8) -> Self {
+        match (color_mode & 0x0c) >> 2 {
+            0x00 => Self(TripleState::Any),
+            0x01 => Self(TripleState::No),
+            0x02 => Self(TripleState::Yes),
+            n => unimplemented!("unknown HDR {}", n),
+        }
+    }
+}
+
+#[derive(Debug)]
+struct ScreenRound(TripleState);
+
+impl ScreenRound {
+    fn to_string(&self) -> Option<String> {
+        match self.0 {
+            TripleState::Any => None,
+            TripleState::Yes => Some("round".into()),
+            TripleState::No => Some("notround".into()),
+        }
+    }
+}
+
+impl From<u8> for ScreenRound {
+    fn from(screen_layout2: u8) -> Self {
+        match screen_layout2 & 0x03 {
+            0x00 => Self(TripleState::Any),
+            0x01 => Self(TripleState::No),
+            0x02 => Self(TripleState::Yes),
+            n => unimplemented!("unknown screen round {}", n),
+        }
+    }
 }
 
 named!(pub parse_resource_table_config<&[u8], Configuration>, do_parse!(
@@ -446,15 +611,17 @@ named!(pub parse_resource_table_config<&[u8], Configuration>, do_parse!(
         keyboard: keyboard.into(),
         navigation: navigation.into(),
         keys_hidden: input_flags.into(),
-        input_flags,
+        nav_hidden: input_flags.into(),
         screen_width,
         screen_height,
         sdk_version: sdk_version.into(),
         minor_version,
 
-        screen_layout,
+        screen_size: screen_layout.into(),
+        screen_long: screen_layout.into(),
+        layout_direction: screen_layout.into(),
         ui_mode: ui_mode.into(),
-        mode: ui_mode,
+        night_mode: ui_mode.into(),
         smallest_screen_width_dp,
         screen_width_dp: screen_width_dp.into(),
         screen_height_dp: screen_height_dp.into(),
@@ -462,7 +629,9 @@ named!(pub parse_resource_table_config<&[u8], Configuration>, do_parse!(
         locale_variant: convert_zero_terminated_u8(locale_variant),
 
         screen_layout2,
-        color_mode,
+        screen_round: screen_layout2.into(),
+        wide_color_gamut: color_mode.into(),
+        hdr: color_mode.into(),
     })
 ));
 
@@ -482,7 +651,7 @@ pub struct Configuration {
     keyboard: Keyboard,
     navigation: Navigation,
     keys_hidden: KeysHidden,
-    input_flags: u8,
+    nav_hidden: NavigationHidden,
 
     screen_width: u16,
     screen_height: u16,
@@ -490,9 +659,11 @@ pub struct Configuration {
     sdk_version: SdkVersion,
     minor_version: u16,
 
-    screen_layout: u8,
-    mode: u8,
+    screen_size: ScreenSize,
+    screen_long: ScreenLong,
+    layout_direction: LayoutDirection,
     ui_mode: UiMode,
+    night_mode: NightMode,
     smallest_screen_width_dp: u16,
 
     screen_width_dp: ScreenWidthDp,
@@ -502,7 +673,9 @@ pub struct Configuration {
     locale_variant: String,
 
     screen_layout2: u8,
-    color_mode: u8,
+    screen_round: ScreenRound,
+    wide_color_gamut: WideColorGamut,
+    hdr: HighDynamicRange,
 }
 
 fn language_or_locale_to_string(v: u16) -> Option<String> {
@@ -549,7 +722,7 @@ impl Configuration {
             parts.push(format!("r{}", c));
         }
 
-        if let Some(ld) = self.screen_layout_direction().to_string() {
+        if let Some(ld) = self.layout_direction.to_string() {
             parts.push(ld);
         }
 
@@ -565,17 +738,35 @@ impl Configuration {
             parts.push(sh);
         }
 
-        if let Some(s) = self.screen_size().to_string() {
+        if let Some(s) = self.screen_size.to_string() {
             parts.push(s);
         }
 
-        //....
+        if let Some(s) = self.screen_long.to_string() {
+            parts.push(s);
+        }
+
+        if let Some(o) = self.screen_round.to_string() {
+            parts.push(o);
+        }
+
+        if let Some(o) = self.wide_color_gamut.to_string() {
+            parts.push(o);
+        }
+
+        if let Some(o) = self.hdr.to_string() {
+            parts.push(o);
+        }
 
         if let Some(o) = self.orientation.to_string() {
             parts.push(o);
         }
 
         if let Some(s) = self.ui_mode.to_string() {
+            parts.push(s);
+        }
+
+        if let Some(s) = self.night_mode.to_string() {
             parts.push(s);
         }
 
@@ -587,11 +778,15 @@ impl Configuration {
             parts.push(s);
         }
 
+        if let Some(s) = self.keys_hidden.to_string() {
+            parts.push(s);
+        }
+
         if let Some(s) = self.keyboard.to_string() {
             parts.push(s);
         }
 
-        if let Some(s) = self.keys_hidden.to_string() {
+        if let Some(s) = self.nav_hidden.to_string() {
             parts.push(s);
         }
 
@@ -613,16 +808,6 @@ impl Configuration {
 
     pub fn country(&self) -> Option<String> {
         language_or_locale_to_string(self.country)
-    }
-
-
-    pub fn nav_hidden(&self) -> TripleState {
-        match (self.input_flags & 0x0c) >> 2 {
-            0 => TripleState::Any,
-            1 => TripleState::No,
-            2 => TripleState::Yes,
-            n => unimplemented!("unknown nav_hidden {}", n),
-        }
     }
 
     pub fn screen_width(&self) -> Option<u16> {
@@ -649,67 +834,11 @@ impl Configuration {
         }
     }
 
-    pub fn screen_size(&self) -> ScreenSize {
-        match self.screen_layout & 0xf {
-            0x00 => ScreenSize::Any,
-            0x01 => ScreenSize::Small,
-            0x02 => ScreenSize::Normal,
-            0x03 => ScreenSize::Large,
-            0x04 => ScreenSize::XLarge,
-            n => unimplemented!("unknown screen size {}", n),
-        }
-    }
-
-    pub fn screen_long(&self) -> TripleState {
-        match (self.screen_layout & 0x30) >> 4 {
-            0x00 => TripleState::Any,
-            0x01 => TripleState::No,
-            0x02 => TripleState::Yes,
-            n => unimplemented!("unknown screen size {}", n),
-        }
-    }
-
-    pub fn screen_layout_direction(&self) -> LayoutDirection {
-        match (self.screen_layout & 0xC0) >> 6 {
-            0x00 => LayoutDirection::Any,
-            0x01 => LayoutDirection::LeftToRight,
-            0x02 => LayoutDirection::RightToLeft,
-            n => unimplemented!("unknown layout direction {}", n),
-        }
-    }
-
-    pub fn night_mode(&self) -> TripleState {
-        match (self.mode & 0x30) >> 4 {
-            0x00 => TripleState::Any,
-            0x01 => TripleState::No,
-            0x02 => TripleState::Yes,
-            n => unimplemented!("unknown night mode {}", n),
-        }
-    }
-
     pub fn smallest_screen_width_dp(&self) -> Option<u16> {
         if self.smallest_screen_width_dp != 0 {
             Some(self.smallest_screen_width_dp)
         } else {
             None
-        }
-    }
-
-    pub fn screen_round(&self) -> TripleState {
-        match self.screen_layout2 & 0x03 {
-            0x00 => TripleState::Any,
-            0x01 => TripleState::No,
-            0x02 => TripleState::Yes,
-            n => unimplemented!("unknown screen round {}", n),
-        }
-    }
-
-    pub fn wide_color_gamut(&self) -> TripleState {
-        match (self.color_mode & 0x0c) >> 2 {
-            0x00 => TripleState::Any,
-            0x01 => TripleState::No,
-            0x02 => TripleState::Yes,
-            n => unimplemented!("unknown screen round {}", n),
         }
     }
 }
