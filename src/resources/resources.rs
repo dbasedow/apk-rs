@@ -1,6 +1,6 @@
 use crate::chunk::{parse_chunk, parse_chunks};
 use crate::stringpool::parse_string_pool_chunk;
-use crate::resource_config::{Configuration, parse_resource_table_config};
+use crate::resources::config::{Configuration, parse_resource_table_config};
 use crate::typedvalue::ResourceValue;
 use crate::typedvalue::{parse_res_value, TypedValue};
 use nom::*;

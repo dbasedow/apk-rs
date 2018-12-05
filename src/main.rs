@@ -2,7 +2,7 @@ extern crate zip;
 #[macro_use]
 extern crate nom;
 use crate::parser::{is_binary_xml, XmlElementStream, XmlEvent};
-use crate::resources::parse_resource_table;
+use crate::resources::resources::parse_resource_table;
 use std::env;
 use std::fs::File;
 use std::io::Read;
@@ -83,8 +83,7 @@ fn extract_xml_by_name(apk: &str, name: &str) -> zip::result::ZipResult<Box<Vec<
 
 mod chunk;
 mod parser;
-mod resources;
 mod stringpool;
 mod typedvalue;
 mod zipiter;
-mod resource_config;
+pub mod resources;

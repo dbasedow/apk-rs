@@ -1,5 +1,5 @@
 use nom::*;
-use crate::resources::convert_zero_terminated_u8;
+use crate::resources::resources::convert_zero_terminated_u8;
 
 #[derive(Debug, PartialEq)]
 pub enum Orientation {
