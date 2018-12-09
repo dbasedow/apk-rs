@@ -1,4 +1,5 @@
 use nom::*;
+use std::fmt;
 use crate::resources::resources::convert_zero_terminated_u8;
 use crate::resources::config_qualifiers::*;
 
@@ -67,8 +68,6 @@ named!(pub parse_resource_table_config<&[u8], Configuration>, do_parse!(
     })
 ));
 
-
-#[derive(Debug)]
 pub struct Configuration {
     imsi_mcc: MCC,
     imsi_mnc: MNC,
@@ -123,6 +122,16 @@ fn language_or_region_to_string(v: u16) -> Option<String> {
     }
     //TODO add support for three letter codes
     None
+}
+
+impl fmt::Debug for Configuration {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        if let Some(s) = self.to_configuration_name() {
+            write!(f, "{}", s)
+        } else {
+            write!(f, "any")
+        }
+    }
 }
 
 impl Configuration {

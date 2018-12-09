@@ -23,7 +23,7 @@ pub fn parse_resource_table(data: &[u8]) -> IResult<&[u8], Option<Resources>> {
             let key_strings = parse_string_pool_chunk(&package_chunks[1]).ok().unwrap();
 
             let mut resources = Resources {
-                config: None,
+                device_config: None,
                 resource_types: Vec::new(),
                 values: strings,
                 keys: key_strings,
@@ -200,7 +200,6 @@ enum EntryData {
 
 #[derive(Debug)]
 struct Entry {
-    size: usize,
     flags: u16,
     key: u32,
     data: Option<EntryData>,
@@ -216,7 +215,7 @@ named!(parse_entry<&[u8], Entry>, do_parse!(
     size: le_u16 >>
     flags: le_u16 >>
     key: le_u32 >>
-    (Entry { size: size as usize, flags, key, data: None })
+    (Entry { flags, key, data: None })
 ));
 
 #[derive(Debug)]
@@ -349,7 +348,7 @@ pub struct ResourceType {
 
 pub struct Resources {
     //configuration to check against
-    config: Option<Configuration>,
+    device_config: Option<Configuration>,
     resource_types: Vec<ResourceType>,
 
     //String tables
@@ -402,6 +401,38 @@ impl Resources {
             if let Some(Some(entry)) = first_existing {
                 return self.keys.get_optional(entry.key);
             }
+        }
+        None
+    }
+
+    fn get_entry_by_id_all_configs(&self, id: u32) -> Option<Vec<(&Configuration, &Entry)>> {
+        let index = (id & 0x0000ffff) as usize;
+        if let Some(res_type) = self.get_resource_type_by_id(id) {
+            let entries: Vec<(&Configuration, &Entry)> = res_type.data
+                .iter()
+                .map(|d| (&d.config, &d.values[index]))
+                .filter(|v| v.1.is_some())
+                .map(|v| (v.0, v.1.as_ref().unwrap()))
+                .collect();
+            return Some(entries);
+        }
+
+        None
+    }
+
+    pub fn get_string_by_id_all_configs(&self, id: u32) -> Option<Vec<(&Configuration, String)>> {
+        if let Some(entry) = self.get_entry_by_id_all_configs(id) {
+            let mut result: Vec<(&Configuration, String)> = Vec::with_capacity(entry.len());
+            for e in entry {
+                if let Some(EntryData::Simple(s)) = e.1.data {
+                    if s.typ == 0x03 {
+                        result.push((e.0, self.values.get(s.value)));
+                    } else {
+                        panic!("expected string type, found {:X}", s.typ)
+                    }
+                }
+            }
+            return Some(result);
         }
         None
     }
