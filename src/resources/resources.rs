@@ -7,7 +7,7 @@ use nom::*;
 use std::collections::HashSet;
 use crate::stringpool::StringPool;
 
-pub fn parse_resource_table(data: &[u8]) -> IResult<&[u8], ()> {
+pub fn parse_resource_table(data: &[u8]) -> IResult<&[u8], Option<Resources>> {
     let (_, main_chunk) = try_parse!(data, parse_chunk);
     let (_, num_packages) = try_parse!(main_chunk.additional_header, parse_table_chunk_header);
     if num_packages != 1 {
@@ -21,15 +21,27 @@ pub fn parse_resource_table(data: &[u8]) -> IResult<&[u8], ()> {
             let (_, package_chunks) = try_parse!(chunk.data, parse_chunks);
             let type_strings = parse_string_pool_chunk(&package_chunks[0]).ok().unwrap();
             let key_strings = parse_string_pool_chunk(&package_chunks[1]).ok().unwrap();
-            println!("{:?}", pch);
+
+            let mut resources = Resources {
+                config: None,
+                resource_types: Vec::new(),
+                values: strings,
+                keys: key_strings,
+                types: type_strings,
+            };
             for sub_chunk in package_chunks {
                 if sub_chunk.typ == 0x201 {
                     let (_, rtth) = try_parse!(
                         sub_chunk.additional_header,
                         parse_resource_table_type_header
                     );
-                    println!("res/{:?}/{}", rtth.config.to_configuration_name(), type_strings.get((rtth.id - 1) as u32));
                     if let IResult::Done(_, entries) = parse_resource_table_type_body(sub_chunk.data, rtth.entry_count) {
+                        let rd = ResourceData {
+                            config: rtth.config,
+                            values: entries,
+                        };
+                        resources.add_resource_data(rtth.id, rd);
+                        /*
                         for entry in entries {
                             if let Some(entry) = entry {
                                 if let Some(EntryData::Simple(d)) = entry.data {
@@ -52,8 +64,10 @@ pub fn parse_resource_table(data: &[u8]) -> IResult<&[u8], ()> {
                                 }
                             }
                         }
+                        */
                     }
                 }
+                /*
                 if sub_chunk.typ == 0x202 {
                     let (_, head) = try_parse!(sub_chunk.additional_header, parse_resource_table_type_spec_head);
                     let (_, entries) = try_parse!(sub_chunk.data, parse_resource_table_type_spec_entries);
@@ -63,14 +77,14 @@ pub fn parse_resource_table(data: &[u8]) -> IResult<&[u8], ()> {
                         configurations.insert(entry);
                     }
                     println!("configs: {}", configurations.len());
-                } else {
-                    println!("{:x}", sub_chunk.typ);
                 }
+                */
             }
+            return IResult::Done(&[], Some(resources));
         }
     }
 
-    IResult::Done(&[], ())
+    IResult::Done(&[], None)
 }
 
 named!(parse_table_chunk_header<&[u8], usize>, do_parse!(
@@ -322,18 +336,18 @@ fn get_resource_type_from_id(id: u32) -> u8 {
     ((id & 0x00ff0000) >> 16) as u8
 }
 
-struct ResourceData {
+pub struct ResourceData {
     //Configuration
     config: Configuration,
-    values: Vec<ResourceValue>,
+    values: Vec<Option<Entry>>,
 }
 
-struct ResourceType {
-    name: String,
+pub struct ResourceType {
+    id: u8,
     data: Vec<ResourceData>,
 }
 
-struct Resources {
+pub struct Resources {
     //configuration to check against
     config: Option<Configuration>,
     resource_types: Vec<ResourceType>,
@@ -345,7 +359,60 @@ struct Resources {
 }
 
 impl Resources {
-    pub fn get_string_by_id(&self, id: u32) -> String {
-        "".into()
+    fn add_resource_data(&mut self, resource_type_id: u8, data: ResourceData) {
+        for resource_type in &mut self.resource_types {
+            if resource_type.id == resource_type_id {
+                resource_type.data.push(data);
+                return;
+            }
+        }
+
+        let mut resource_type = ResourceType {
+            id: resource_type_id,
+            data: Vec::new(),
+        };
+        resource_type.data.push(data);
+        self.resource_types.push(resource_type);
+    }
+
+    fn get_resource_type_by_id(&self, id: u32) -> Option<&ResourceType> {
+        let res_type_id = get_resource_type_from_id(id);
+        for res_type in &self.resource_types {
+            if res_type.id == res_type_id {
+                return Some(&res_type);
+            }
+        }
+        None
+    }
+
+    pub fn get_resource_type(&self, id: u32) -> Option<String> {
+        let type_id = get_resource_type_from_id(id);
+        let type_index = type_id - 1;
+        self.types.get_optional(type_index as u32)
+    }
+
+    pub fn get_key_name(&self, id: u32) -> Option<String> {
+        let index = (id & 0x0000ffff) as usize;
+        if let Some(res_type) = self.get_resource_type_by_id(id) {
+            let first_existing = &res_type.data
+                .iter()
+                .map(|d| &d.values[index])
+                .filter(|v| v.is_some())
+                .next();
+            if let Some(Some(entry)) = first_existing {
+                return self.keys.get_optional(entry.key);
+            }
+        }
+        None
+    }
+
+    pub fn get_string_by_id(&self, id: u32) -> Option<String> {
+        let index = id & 0x0000ffff;
+        if let Some(res_type) = self.get_resource_type_by_id(id) {
+            if let Some(entry) = &res_type.data[0].values[index as usize] {
+                println!("{:?}", entry);
+            }
+        }
+        None
     }
 }

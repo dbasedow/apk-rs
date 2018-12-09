@@ -1,9 +1,11 @@
 extern crate zip;
 #[macro_use]
 extern crate nom;
+
 use crate::parser::{is_binary_xml, XmlElementStream, XmlEvent};
 use crate::resources::resources::parse_resource_table;
 use std::env;
+use nom::IResult;
 use std::fs::File;
 use std::io::Read;
 use zip::result::ZipError;
@@ -18,7 +20,12 @@ fn main() {
 
     for b in ziter.filter(|b| b.0.ends_with(".arsc")) {
         println!("{}", b.0);
-        parse_resource_table(&b.1);
+        let resources = parse_resource_table(&b.1);
+        if let IResult::Done(_, Some(resources)) = resources {
+            let id = 0x7f070000;
+            println!("{:?} {:?}", resources.get_key_name(id), resources.get_resource_type(id));
+        }
+        panic!("done {}");
     }
 
     /*
