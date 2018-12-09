@@ -1,6 +1,110 @@
 use nom::*;
 use crate::resources::resources::convert_zero_terminated_u8;
 
+#[derive(Debug)]
+pub enum MCC {
+    Any,
+    Some(u16),
+}
+
+impl MCC {
+    fn to_string(&self) -> Option<String> {
+        match self {
+            MCC::Any => None,
+            MCC::Some(mcc) => Some(format!("mcc{}", mcc)),
+        }
+    }
+}
+
+impl From<u16> for MCC {
+    fn from(mcc: u16) -> MCC {
+        if mcc != 0 {
+            MCC::Some(mcc)
+        } else {
+            MCC::Any
+        }
+    }
+}
+
+#[derive(Debug)]
+pub enum MNC {
+    Any,
+    Some(u16),
+}
+
+impl MNC {
+    fn to_string(&self) -> Option<String> {
+        match self {
+            MNC::Any => None,
+            MNC::Some(mnc) => Some(format!("mnc{}", mnc)),
+        }
+    }
+}
+
+impl From<u16> for MNC {
+    fn from(mnc: u16) -> MNC {
+        if mnc != 0 {
+            MNC::Some(mnc)
+        } else {
+            MNC::Any
+        }
+    }
+}
+
+#[derive(Debug)]
+pub enum Language {
+    Any,
+    Some(u16),
+}
+
+impl Language {
+    fn to_string(&self) -> Option<String> {
+        match self {
+            Language::Any => None,
+            Language::Some(language) => language_or_region_to_string(*language),
+        }
+    }
+}
+
+impl From<u16> for Language {
+    fn from(language: u16) -> Language {
+        if language != 0 {
+            Language::Some(language)
+        } else {
+            Language::Any
+        }
+    }
+}
+
+#[derive(Debug)]
+pub enum Region {
+    Any,
+    Some(u16),
+}
+
+impl Region {
+    fn to_string(&self) -> Option<String> {
+        match self {
+            Region::Any => None,
+            Region::Some(region) => if let Some(r) = language_or_region_to_string(*region) {
+                Some(format!("r{}", r))
+            } else {
+                None
+            },
+        }
+    }
+}
+
+impl From<u16> for Region {
+    fn from(region: u16) -> Region {
+        if region != 0 {
+            Region::Some(region)
+        } else {
+            Region::Any
+        }
+    }
+}
+
 #[derive(Debug, PartialEq)]
 pub enum Orientation {
     Any,
@@ -413,13 +517,32 @@ impl From<u16> for ScreenHeightDp {
     }
 }
 
+#[derive(Debug, PartialEq)]
+pub enum SmallestWidthDp {
+    Any,
+    Some(u16),
+}
 
-/**
-For:
-ScreenRound
-WideColorGamut
-HDR
-*/
+impl SmallestWidthDp {
+    fn to_string(&self) -> Option<String> {
+        match self {
+            SmallestWidthDp::Any => None,
+            SmallestWidthDp::Some(w) => Some(format!("sw{}dp", w)),
+        }
+    }
+}
+
+impl From<u16> for SmallestWidthDp {
+    fn from(screen_width_dp: u16) -> SmallestWidthDp {
+        if screen_width_dp != 0 {
+            SmallestWidthDp::Some(screen_width_dp)
+        } else {
+            SmallestWidthDp::Any
+        }
+    }
+}
+
+
 #[derive(Debug, PartialEq)]
 pub enum TripleState {
     Any,
@@ -576,7 +699,7 @@ named!(pub parse_resource_table_config<&[u8], Configuration>, do_parse!(
     imsi_mcc: le_u16 >>
     imsi_mnc: le_u16 >>
     language: be_u16 >>
-    country: be_u16 >>
+    region: be_u16 >>
     orientation: le_u8 >>
     touchscreen: le_u8 >>
     density: le_u16 >>
@@ -601,10 +724,10 @@ named!(pub parse_resource_table_config<&[u8], Configuration>, do_parse!(
     color_mode: le_u8 >>
     take!(2) >>
     (Configuration {
-        imsi_mcc,
-        imsi_mnc,
-        language: language,
-        country: country,
+        imsi_mcc: imsi_mcc.into(),
+        imsi_mnc: imsi_mnc.into(),
+        language: language.into(),
+        region: region.into(),
         orientation: orientation.into(),
         touchscreen: touchscreen.into(),
         density: density.into(),
@@ -622,7 +745,7 @@ named!(pub parse_resource_table_config<&[u8], Configuration>, do_parse!(
         layout_direction: screen_layout.into(),
         ui_mode: ui_mode.into(),
         night_mode: ui_mode.into(),
-        smallest_screen_width_dp,
+        smallest_screen_width_dp: smallest_screen_width_dp.into(),
         screen_width_dp: screen_width_dp.into(),
         screen_height_dp: screen_height_dp.into(),
         locale_script: convert_zero_terminated_u8(locale_script),
@@ -638,11 +761,11 @@ named!(pub parse_resource_table_config<&[u8], Configuration>, do_parse!(
 
 #[derive(Debug)]
 pub struct Configuration {
-    imsi_mcc: u16,
-    imsi_mnc: u16,
+    imsi_mcc: MCC,
+    imsi_mnc: MNC,
     //locale
-    language: u16,
-    country: u16,
+    language: Language,
+    region: Region,
     //screen
     orientation: Orientation,
     touchscreen: Touchscreen,
@@ -664,7 +787,7 @@ pub struct Configuration {
     layout_direction: LayoutDirection,
     ui_mode: UiMode,
     night_mode: NightMode,
-    smallest_screen_width_dp: u16,
+    smallest_screen_width_dp: SmallestWidthDp,
 
     screen_width_dp: ScreenWidthDp,
     screen_height_dp: ScreenHeightDp,
@@ -678,7 +801,7 @@ pub struct Configuration {
     hdr: HighDynamicRange,
 }
 
-fn language_or_locale_to_string(v: u16) -> Option<String> {
+fn language_or_region_to_string(v: u16) -> Option<String> {
     if v == 0 {
         return None;
     }
@@ -713,21 +836,28 @@ impl Configuration {
 
     fn get_configuration_parts(&self) -> Vec<String> {
         let mut parts: Vec<String> = Vec::new();
-        //TODO: add MCC and MNC
-        if let Some(l) = self.language() {
+        if let Some(mcc) = self.imsi_mcc.to_string() {
+            parts.push(mcc);
+        }
+
+        if let Some(mnc) = self.imsi_mnc.to_string() {
+            parts.push(mnc);
+        }
+
+        if let Some(l) = self.language.to_string() {
             parts.push(l);
         }
 
-        if let Some(c) = self.country() {
-            parts.push(format!("r{}", c));
+        if let Some(c) = self.region.to_string() {
+            parts.push(c);
         }
 
         if let Some(ld) = self.layout_direction.to_string() {
             parts.push(ld);
         }
 
-        if let Some(sw) = self.smallest_screen_width_dp() {
-            parts.push(format!("sw{}dp", sw));
+        if let Some(sw) = self.smallest_screen_width_dp.to_string() {
+            parts.push(sw);
         }
 
         if let Some(sw) = self.screen_width_dp.to_string() {
@@ -798,16 +928,7 @@ impl Configuration {
             parts.push(s);
         }
 
-
         parts
-    }
-
-    pub fn language(&self) -> Option<String> {
-        language_or_locale_to_string(self.language)
-    }
-
-    pub fn country(&self) -> Option<String> {
-        language_or_locale_to_string(self.country)
     }
 
     pub fn screen_width(&self) -> Option<u16> {
@@ -829,14 +950,6 @@ impl Configuration {
     pub fn minor_version(&self) -> Option<u16> {
         if self.minor_version != 0 {
             Some(self.minor_version)
-        } else {
-            None
-        }
-    }
-
-    pub fn smallest_screen_width_dp(&self) -> Option<u16> {
-        if self.smallest_screen_width_dp != 0 {
-            Some(self.smallest_screen_width_dp)
         } else {
             None
         }
