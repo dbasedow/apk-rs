@@ -7,6 +7,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 name = "android-xml"
 version = "0.1.0"
 dependencies = [
+ "flate2 1.0.4 (registry+https://github.com/rust-lang/crates.io-index)",
  "nom 3.2.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "zip 0.4.2 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
@@ -53,6 +54,7 @@ version = "1.0.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 dependencies = [
  "libc 0.2.43 (registry+https://github.com/rust-lang/crates.io-index)",
+ "miniz-sys 0.1.11 (registry+https://github.com/rust-lang/crates.io-index)",
  "miniz_oxide_c_api 0.2.0 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
@@ -66,6 +68,15 @@ name = "memchr"
 version = "1.0.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 dependencies = [
+ "libc 0.2.43 (registry+https://github.com/rust-lang/crates.io-index)",
+]
+
+[[package]]
+name = "miniz-sys"
+version = "0.1.11"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+dependencies = [
+ "cc 1.0.25 (registry+https://github.com/rust-lang/crates.io-index)",
  "libc 0.2.43 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
@@ -166,6 +177,7 @@ dependencies = [
 "checksum flate2 1.0.4 (registry+https://github.com/rust-lang/crates.io-index)" = "3b0c7353385f92079524de3b7116cf99d73947c08a7472774e9b3b04bff3b901"
 "checksum libc 0.2.43 (registry+https://github.com/rust-lang/crates.io-index)" = "76e3a3ef172f1a0b9a9ff0dd1491ae5e6c948b94479a3021819ba7d860c8645d"
 "checksum memchr 1.0.2 (registry+https://github.com/rust-lang/crates.io-index)" = "148fab2e51b4f1cfc66da2a7c32981d1d3c083a803978268bb11fe4b86925e7a"
+"checksum miniz-sys 0.1.11 (registry+https://github.com/rust-lang/crates.io-index)" = "0300eafb20369952951699b68243ab4334f4b10a88f411c221d444b36c40e649"
 "checksum miniz_oxide 0.2.0 (registry+https://github.com/rust-lang/crates.io-index)" = "5ad30a47319c16cde58d0314f5d98202a80c9083b5f61178457403dfb14e509c"
 "checksum miniz_oxide_c_api 0.2.0 (registry+https://github.com/rust-lang/crates.io-index)" = "28edaef377517fd9fe3e085c37d892ce7acd1fbeab9239c5a36eec352d8a8b7e"
 "checksum msdos_time 0.1.6 (registry+https://github.com/rust-lang/crates.io-index)" = "aad9dfe950c057b1bfe9c1f2aa51583a8468ef2a5baba2ebbe06d775efeb7729"

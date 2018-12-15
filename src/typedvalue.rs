@@ -61,6 +61,15 @@ impl TypedValue {
             _ => unreachable!(),
         }
     }
+
+    /** Returns true if this value references a value in resources */
+    pub fn is_reference_type(&self) -> bool {
+        match self {
+            TypedValue::Reference(_) => true,
+            TypedValue::Attribute(_) => true,
+            _ => false
+        }
+    }
 }
 
 #[derive(Copy, Clone, Debug)]

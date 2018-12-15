@@ -7,3 +7,4 @@ edition = "2018"
 [dependencies]
 zip = "0.4.2"
 nom = "3"
+flate2 = "1.0"
