@@ -8,6 +8,7 @@ use nom::*;
 use crate::zip2::parser::CentralDirectoryFileHeader;
 use std::borrow::Cow;
 use flate2::read::DeflateDecoder;
+use crate::zip2::io::ReaderWrapper;
 
 pub enum Compression {
     Store,
@@ -60,24 +61,28 @@ fn get_range_of_central_directory<R: Read + Seek>(data: &mut R) -> io::Result<(u
     Err(io::Error::new(io::ErrorKind::Other, "end of central directory signature not found"))
 }
 
-pub struct ZipArchive<R: Read + Seek + Clone + Open> {
-    reader: R,
+pub struct ZipArchive {
+    reader: ReaderWrapper,
     entries: Rc<Vec<CentralDirectoryFileHeader>>,
 }
 
 #[derive(Debug)]
-pub struct ZipEntry<R: Read + Seek + Clone + Open> {
-    reader: R,
+pub struct ZipEntry {
+    reader: ReaderWrapper,
     pub header: CentralDirectoryFileHeader,
 }
 
-impl ZipEntry<FileReader> {
+impl ZipEntry {
     pub fn file_name(&self) -> String {
         self.header.file_name()
     }
 
     pub fn compression(&self) -> Compression {
         self.header.compression_method.into()
+    }
+
+    pub fn len(&self) -> usize {
+        self.header.uncompressed_size as usize
     }
 
     pub fn content(&self) -> io::Result<Box<Read>> {
@@ -95,9 +100,9 @@ impl ZipEntry<FileReader> {
     }
 }
 
-impl ZipArchive<FileReader> {
-    pub fn open(path: &str) -> io::Result<ZipArchive<FileReader>> {
-        let mut reader = FileReader::open(path)?;
+impl ZipArchive {
+    pub fn open(path: &str) -> io::Result<ZipArchive> {
+        let mut reader = ReaderWrapper::FileReader(FileReader::open(path)?);
         let (offset, size) = get_range_of_central_directory(&mut reader)?;
 
         reader.seek(SeekFrom::Start(offset as u64))?;
@@ -117,7 +122,7 @@ impl ZipArchive<FileReader> {
         })
     }
 
-    pub fn by_name(&self, name: &str) -> io::Result<Option<ZipEntry<FileReader>>> {
+    pub fn by_name(&self, name: &str) -> io::Result<Option<ZipEntry>> {
         for entry in self.entries.iter() {
             if entry.file_name() == name {
                 return Ok(Some(ZipEntry {
@@ -129,7 +134,7 @@ impl ZipArchive<FileReader> {
         Ok(None)
     }
 
-    pub fn files(&self) -> ZipIter<FileReader> {
+    pub fn files(&self) -> ZipIter {
         ZipIter {
             reader: self.reader.clone(),
             entries: self.entries.clone(),
@@ -138,14 +143,14 @@ impl ZipArchive<FileReader> {
     }
 }
 
-pub struct ZipIter<R: Read + Seek + Clone + Open> {
-    reader: R,
+pub struct ZipIter {
+    reader: ReaderWrapper,
     entries: Rc<Vec<CentralDirectoryFileHeader>>,
     index: usize,
 }
 
-impl Iterator for ZipIter<FileReader> {
-    type Item = ZipEntry<FileReader>;
+impl Iterator for ZipIter {
+    type Item = ZipEntry;
 
     fn next(&mut self) -> Option<Self::Item> {
         if self.index < self.entries.len() {

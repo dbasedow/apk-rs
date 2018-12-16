@@ -26,7 +26,7 @@ pub struct CentralDirectoryFileHeader {
     //last_mod_date: u16,
     crc32: u32,
     pub compressed_size: u32,
-    uncompressed_size: u32,
+    pub uncompressed_size: u32,
 
     //disk_number_start: u16,
     //internal_file_attributes: u16,
