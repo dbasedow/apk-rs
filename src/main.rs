@@ -1,4 +1,3 @@
-extern crate zip;
 #[macro_use]
 extern crate nom;
 
@@ -8,34 +7,13 @@ use std::env;
 use nom::IResult;
 use std::fs::File;
 use std::io::Read;
-use zip::result::ZipError;
+use std::collections::HashSet;
 
-fn main() {
-    let apk = env::args().last().unwrap();
-    let file = File::open(apk).unwrap();
+fn main() -> Result<(), Box<std::error::Error>> {
+    let apk_path = env::args().last().unwrap();
+    let apk = apk::Apk::open(&apk_path)?;
 
-    let zip = zip::ZipArchive::new(file).unwrap();
-
-    let ziter = zipiter::ZipIter::new(zip);
-
-    for b in ziter.filter(|b| b.0.ends_with(".arsc")) {
-        println!("{}", b.0);
-        let resources = parse_resource_table(&b.1);
-        if let IResult::Done(_, Some(resources)) = resources {
-            let id = 0x7f070000;
-            println!("{:?} {:?}", resources.get_key_name(id), resources.get_resource_type(id));
-        }
-        panic!("done {}");
-    }
-
-    /*
-    for b in ziter
-        .filter(|b| b.0.ends_with(".xml"))
-        .filter(|b| is_binary_xml(&b.1[..]))
-    {
-        render_plain(&b.1);
-    }
-    */
+    Ok(())
 }
 
 fn render_plain(data: &[u8]) {
@@ -71,26 +49,10 @@ fn indent_ouput(level: u32) {
     }
 }
 
-fn extract_xml_by_name(apk: &str, name: &str) -> zip::result::ZipResult<Box<Vec<u8>>> {
-    let file = File::open(apk)?;
-
-    let mut zip = zip::ZipArchive::new(file)?;
-
-    for i in 0..zip.len() {
-        let mut file = zip.by_index(i).unwrap();
-        if file.name() == name {
-            let mut buf: Vec<u8> = Vec::with_capacity(file.size() as usize);
-            file.read_to_end(&mut buf)?;
-            return Ok(Box::new(buf));
-        }
-    }
-
-    Err(ZipError::FileNotFound)
-}
-
+mod apk;
 mod chunk;
 mod parser;
 mod stringpool;
 mod typedvalue;
-mod zipiter;
+mod zip;
 pub mod resources;

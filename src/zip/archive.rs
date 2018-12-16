@@ -2,13 +2,13 @@ use std::io::{self, Read, Seek};
 use std::fs::File;
 use std::io::SeekFrom;
 use std::rc::Rc;
-use crate::zip2::io::{Open, FileReader};
-use crate::zip2::parser;
+use crate::zip::io::{Open, FileReader};
+use crate::zip::parser;
 use nom::*;
-use crate::zip2::parser::CentralDirectoryFileHeader;
+use crate::zip::parser::CentralDirectoryFileHeader;
 use std::borrow::Cow;
 use flate2::read::DeflateDecoder;
-use crate::zip2::io::ReaderWrapper;
+use crate::zip::io::ReaderWrapper;
 
 pub enum Compression {
     Store,
