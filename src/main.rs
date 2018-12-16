@@ -12,6 +12,9 @@ use std::collections::HashSet;
 fn main() -> Result<(), Box<std::error::Error>> {
     let apk_path = env::args().last().unwrap();
     let apk = apk::Apk::open(&apk_path)?;
+    for f in apk.files() {
+        println!("{}: {}/{}", f.name(), f.len(), f.compressed_len());
+    }
 
     Ok(())
 }

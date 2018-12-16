@@ -6,18 +6,27 @@ use crate::resources::resources::parse_resource_table;
 use std::io::Seek;
 use crate::zip::archive::ZipEntry;
 use crate::zip::archive::ZipArchive;
+use std::iter::Map;
+use crate::zip::archive::ZipIter;
 
 pub struct Apk {
     zip_archive: ZipArchive,
     resources: Option<Resources>,
 }
 
-#[derive(Debug)]
 pub struct ApkFile(ZipEntry);
 
 impl ApkFile {
-    pub fn from_zip_file(z: ZipEntry) -> ApkFile {
-        ApkFile(z)
+    pub fn name(&self) -> String {
+        self.0.header.file_name()
+    }
+
+    pub fn len(&self) -> usize {
+        self.0.len()
+    }
+
+    pub fn compressed_len(&self) -> usize {
+        self.0.header.compressed_size as usize
     }
 }
 
@@ -43,4 +52,27 @@ impl Apk {
         })
     }
 
+    pub fn files(&self) -> ApkIter {
+        ApkIter(self.zip_archive.files())
+    }
+
+    pub fn file_by_name(&self, name: &str) -> io::Result<Option<ApkFile>> {
+        if let Some(f) = self.zip_archive.by_name(name)? {
+            return Ok(Some(ApkFile(f)));
+        }
+        Ok(None)
+    }
+}
+
+pub struct ApkIter(ZipIter);
+
+impl Iterator for ApkIter {
+    type Item = ApkFile;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if let Some(f) = self.0.next() {
+            return Some(ApkFile(f));
+        }
+        None
+    }
 }
