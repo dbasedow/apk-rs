@@ -80,9 +80,18 @@ impl ZipEntry<FileReader> {
         self.header.compression_method.into()
     }
 
-    pub fn content(&self) -> impl Read {
-        let r = self.reader.clone().take(self.header.compressed_size as u64);
-        DeflateDecoder::new(r)
+    pub fn content(&self) -> io::Result<Box<Read>> {
+        let mut r = self.reader.clone();
+        r.seek(SeekFrom::Start(self.header.relative_offset_of_local_header as u64))?;
+        let mut header_buf = vec![0; 30];
+        r.read_exact(&mut header_buf)?;
+        if let IResult::Done(_, (file_name_len, extra_field_len)) = parser::parse_local_file_header(&header_buf) {
+            r.seek(SeekFrom::Current(file_name_len + extra_field_len))?;
+        }
+        if self.header.compression_method == 8 {
+            return Ok(Box::new(DeflateDecoder::new(r.take(self.header.compressed_size as u64))));
+        }
+        Ok(Box::new(r.take(self.header.compressed_size as u64)))
     }
 }
 
@@ -96,7 +105,7 @@ impl ZipArchive<FileReader> {
         let mut buf = vec![0; size];
         reader.read_exact(&mut buf)?;
         let entries: Vec<CentralDirectoryFileHeader>;
-        if let IResult::Done(_, res) = parser::parse_central_directory(&buf) {
+        if let IResult::Done(foo, res) = parser::parse_central_directory(&buf) {
             entries = res;
         } else {
             return Err(io::Error::new(io::ErrorKind::Other, "error parsing central directory"));

@@ -1,6 +1,21 @@
 use nom::*;
 use std::borrow::Cow;
 
+named!(pub parse_local_file_header<&[u8], (i64, i64)>, do_parse!(
+    tag!([0x50, 0x4b, 0x03, 0x04]) >>
+    version: le_u16 >>
+    flags: le_u16 >>
+    compression: le_u16 >>
+    mod_time: le_u16 >>
+    mod_date: le_u16 >>
+    crc32: le_u32 >>
+    compressed_size: le_u32 >>
+    uncompressed_size: le_u32 >>
+    file_name_len: le_u16 >>
+    extra_field_len: le_u16 >>
+    ((file_name_len as i64, extra_field_len as i64))
+));
+
 #[derive(Debug, Clone)]
 pub struct CentralDirectoryFileHeader {
     //version_producer: u16,
@@ -16,7 +31,7 @@ pub struct CentralDirectoryFileHeader {
     //disk_number_start: u16,
     //internal_file_attributes: u16,
     //external_file_attributes: u32,
-    relative_offset_of_local_header: u32,
+    pub relative_offset_of_local_header: u32,
     file_name: Vec<u8>,
     extra_field: Vec<u8>,
     //file_comment: Vec<u8>,
