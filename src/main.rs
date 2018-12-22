@@ -8,18 +8,30 @@ use nom::IResult;
 use std::fs::File;
 use std::io::Read;
 use std::collections::HashSet;
+use crate::resources::resources::Resources;
+use crate::typedvalue::TypedValue;
+use crate::resources::resources::is_package_reference;
 
 fn main() -> Result<(), Box<std::error::Error>> {
     let apk_path = env::args().last().unwrap();
     let apk = apk::Apk::open(&apk_path)?;
     for f in apk.files() {
         println!("{}: {}/{}", f.name(), f.len(), f.compressed_len());
+        if f.name() == "AndroidManifest.xml" {
+            let mut buf = Vec::with_capacity(f.len());
+            let mut rdr = f.content()?;
+            rdr.read_to_end(&mut buf)?;
+            let res = apk.get_resources().unwrap();
+
+            render_plain(&buf, res);
+            return Ok(());
+        }
     }
 
     Ok(())
 }
 
-fn render_plain(data: &[u8]) {
+fn render_plain(data: &[u8], resources: &Resources) {
     if let Ok(it) = XmlElementStream::new(data) {
         let mut indent = 0;
         for e in it {
@@ -29,7 +41,16 @@ fn render_plain(data: &[u8]) {
                     print!("<{}", e.name);
                     if e.attribute_len() > 0 {
                         for a in e.attributes.unwrap() {
-                            print!(" {}=\"{}\"", a.name, a.value.to_string());
+                            let foo = if a.value.is_reference_type() {
+                                match a.value {
+                                    TypedValue::Reference(r) if is_package_reference(r) => resources.get_human_reference(r).unwrap(),
+                                    TypedValue::Reference(_) => a.value.to_string(),
+                                    _ => "".to_string(),
+                                }
+                            } else {
+                                a.value.to_string()
+                            };
+                            print!(" {}=\"{}\"", a.name, foo);
                         }
                     }
                     println!(" />");

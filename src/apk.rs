@@ -28,6 +28,10 @@ impl ApkFile {
     pub fn compressed_len(&self) -> usize {
         self.0.header.compressed_size as usize
     }
+
+    pub fn content(&self) -> io::Result<Box<Read>> {
+        self.0.content()
+    }
 }
 
 impl Apk {
@@ -61,6 +65,10 @@ impl Apk {
             return Ok(Some(ApkFile(f)));
         }
         Ok(None)
+    }
+
+    pub fn get_resources(&self) -> Option<&Resources> {
+        self.resources.as_ref()
     }
 }
 

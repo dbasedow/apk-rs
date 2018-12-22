@@ -335,6 +335,14 @@ fn get_resource_type_from_id(id: u32) -> u8 {
     ((id & 0x00ff0000) >> 16) as u8
 }
 
+pub fn is_system_reference(id: u32) -> bool {
+    id & 0xff000000 == 0x01000000
+}
+
+pub fn is_package_reference(id: u32) -> bool {
+    id & 0xff000000 == 0x7f000000
+}
+
 pub struct ResourceData {
     //Configuration
     config: Configuration,
@@ -390,8 +398,27 @@ impl Resources {
         self.types.get_optional(type_index as u32)
     }
 
+    pub fn get_human_reference(&self, id: u32) -> Option<String> {
+        if !is_package_reference(id) {
+            return None;
+        }
+
+        if let Some(typ) = self.get_resource_type(id) {
+            if let Some(key) = self.get_key_name(id) {
+                return Some(format!("@{}/{}", typ, key));
+            }
+        }
+
+        None
+    }
+
     pub fn get_key_name(&self, id: u32) -> Option<String> {
+        if !is_package_reference(id) {
+            return None;
+        }
+
         let index = (id & 0x0000ffff) as usize;
+
         if let Some(res_type) = self.get_resource_type_by_id(id) {
             let first_existing = &res_type.data
                 .iter()
