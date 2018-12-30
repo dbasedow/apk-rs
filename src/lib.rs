@@ -1,10 +1,11 @@
 extern crate nom;
 
 pub mod apk;
+pub mod axml;
+pub mod resources;
+
 mod chunk;
-mod parser;
 mod stringpool;
 mod typedvalue;
 mod zip;
-pub mod resources;
 
