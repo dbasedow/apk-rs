@@ -7,3 +7,5 @@ edition = "2018"
 [dependencies]
 nom = "3"
 flate2 = "1.0"
+sha2 = "0.8"
+

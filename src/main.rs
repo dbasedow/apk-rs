@@ -1,7 +1,7 @@
 #[macro_use]
 extern crate nom;
 
-use crate::parser::{is_binary_xml, XmlElementStream, XmlEvent};
+use crate::axml::{is_binary_xml, XmlElementStream, XmlEvent};
 use crate::resources::resources::parse_resource_table;
 use std::env;
 use nom::IResult;
@@ -15,6 +15,9 @@ use crate::resources::resources::is_package_reference;
 fn main() -> Result<(), Box<std::error::Error>> {
     let apk_path = env::args().last().unwrap();
     let apk = apk::Apk::open(&apk_path)?;
+    let fp = apk.get_certificate_fingerprint_sha256()?;
+    println!("{:x?}", fp);
+    /*
     for f in apk.files() {
         println!("{}: {}/{}", f.name(), f.len(), f.compressed_len());
         if f.name() == "AndroidManifest.xml" {
@@ -27,6 +30,7 @@ fn main() -> Result<(), Box<std::error::Error>> {
             return Ok(());
         }
     }
+    */
 
     Ok(())
 }
@@ -75,8 +79,9 @@ fn indent_ouput(level: u32) {
 
 mod apk;
 mod chunk;
-mod parser;
+mod axml;
 mod stringpool;
 mod typedvalue;
 mod zip;
 pub mod resources;
+mod signature;

@@ -8,6 +8,7 @@ use crate::zip::archive::ZipEntry;
 use crate::zip::archive::ZipArchive;
 use std::iter::Map;
 use crate::zip::archive::ZipIter;
+use crate::signature::get_key_fingerprint_sha256;
 
 pub struct Apk {
     zip_archive: ZipArchive,
@@ -69,6 +70,21 @@ impl Apk {
 
     pub fn get_resources(&self) -> Option<&Resources> {
         self.resources.as_ref()
+    }
+
+    pub fn get_certificate_fingerprint_sha256(&self) -> io::Result<Vec<u8>> {
+        if let Some(cert_file) = self.file_by_name("META-INF/CERT.RSA")? {
+            let mut reader = cert_file.content()?;
+            let mut buf = Vec::with_capacity(cert_file.len());
+            reader.read_to_end(&mut buf)?;
+
+            let fingerprint = get_key_fingerprint_sha256(&buf);
+            if fingerprint.is_err() {
+                return Err(io::Error::new(io::ErrorKind::InvalidData, "unable to parse certificate"));
+            }
+            return Ok(fingerprint.unwrap());
+        }
+        Err(io::Error::new(io::ErrorKind::NotFound, "CERT.RSA not found"))
     }
 }
 
