@@ -6,7 +6,7 @@ mod asn1;
 pub fn get_key_fingerprint_sha256(pkcs7: &[u8]) -> Result<Vec<u8>, u32> {
     if let IResult::Done(_, cert) = get_cert(pkcs7) {
         let mut hasher = Sha256::new();
-        hasher.input(pkcs7);
+        hasher.input(cert);
         return Ok(hasher.result().to_vec());
     }
     Err(0)
