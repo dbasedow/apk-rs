@@ -33,7 +33,7 @@ impl TypedValue {
             0x06 => TypedValue::Fraction(typed_value.value),
             0x10 => TypedValue::IntDecimal(typed_value.value as i32),
             0x11 => TypedValue::IntHex(typed_value.value as i32),
-            0x12 => TypedValue::Boolean(typed_value.value == 1),
+            0x12 => TypedValue::Boolean(typed_value.value == 0xFF_FF_FF_FF),
             0x1c => TypedValue::Argb8(typed_value.value),
             0x1d => TypedValue::Rgb8(typed_value.value),
             0x1e => TypedValue::Argb4(typed_value.value),
@@ -67,7 +67,7 @@ impl TypedValue {
         match self {
             TypedValue::Reference(_) => true,
             TypedValue::Attribute(_) => true,
-            _ => false
+            _ => false,
         }
     }
 }
